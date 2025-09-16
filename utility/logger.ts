@@ -107,7 +107,7 @@ export const writeLog = async (req: Request, data: any, status: number, consume:
 
 // 关闭所有日志流
 export const closeLogStreams = (): void => {
-    for (const [, stream] of logStreams) {
+    for (const stream of logStreams.values()) {
         stream.end();
     }
     logStreams.clear();
