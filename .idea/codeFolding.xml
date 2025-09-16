@@ -1,0 +1,10 @@
+<project version="4">
+  <component name="CodeFoldingSettings">
+    <option name="AUTO_FOLDING_PATTERNS">
+      <array>
+        <option value="package.json" />
+        <option value="package-lock.json" />
+      </array>
+    </option>
+  </component>
+</project>

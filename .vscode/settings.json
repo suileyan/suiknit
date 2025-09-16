@@ -1,0 +1,29 @@
+{
+    "json.maxItemsToShow": 100,
+    "files.exclude": {
+        "**/node_modules": true
+    },
+    "search.exclude": {
+        "**/node_modules": true
+    },
+    "editor.folding": true,
+    "editor.foldingStrategy": "auto",
+    "editor.showFoldingControls": "always",
+    "files.defaultFormatter": "esbenp.prettier-vscode",
+    "[json]": {
+        "editor.quickSuggestions": {
+            "strings": true
+        },
+        "editor.suggest.insertMode": "replace",
+        "editor.foldingMaximumRegions": 1000,
+        "editor.foldingImportsByDefault": true,
+        "editor.autoClosingBrackets": "always"
+    },
+    "explorer.fileNesting.enabled": true,
+    "explorer.fileNesting.patterns": {
+        "package.json": "package-lock.json,yarn.lock,pnpm-lock.yaml",
+        "tsconfig.json": "tsconfig.*.json",
+        ".env": ".env.*"
+    },
+    "workbench.editor.closeEmptyGroups": true
+}
