@@ -1,32 +1,27 @@
-import jwt from "jsonwebtoken";
-import dotenv from "dotenv";
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+import { SignOptions } from 'jsonwebtoken';
 
 dotenv.config({path: '.env.config'});
 
-const secretKey = process.env.JWENCRPTION;
-
-interface JwtPayload {
-  exp: number;
-  [key: string]: any;
-}
+const secretKey = process.env.JWENCRPTION || 'default_secret_key';
+const expiresIn: any = process.env.JWT_EXPIRES_IN || '30d';
 
 export const generateJWT = (data: object): string => {
-    console.log(secretKey)
-    return jwt.sign(data, secretKey!, {expiresIn: '1h'})
+    const options: SignOptions = {
+        expiresIn
+    };
+    
+    return jwt.sign(data, secretKey!, options);
 }
 
 export const verifyJWT = (token: string | undefined): boolean => {
+    if (!token) return false;
+    
     try {
-        console.log("测试",jwt.decode(token!))
-        const parsed = jwt.decode(token!) as JwtPayload | null
-        if(parsed){
-            //详细判定逻辑
-            if(Date.now() >= parsed.exp * 1000){
-                return true
-            }
-        }
-        return false;
+        jwt.verify(token, secretKey!);
+        return true;
     } catch {
-        return false
+        return false;
     }
 }

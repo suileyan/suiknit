@@ -1,5 +1,5 @@
 import express, { Router } from 'express';
-import { getIndex, postIndex } from '../controllers/indexController.ts';
+import { getIndex, postIndex } from '../controllers/indexController.js';
 
 const router: Router = express.Router();
 

@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "ES2020",
-    "moduleResolution": "node",
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "outDir": "./dist",
     "rootDir": ".",
     "strict": true,
@@ -27,12 +27,19 @@
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
     "exactOptionalPropertyTypes": true,
-    "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": false
+  },
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node"
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx"
+    "server.ts",
+    "utility/**/*.ts",
+    "routes/**/*.ts",
+    "config/**/*.ts",
+    "models/**/*.ts",
+    "controllers/**/*.ts"
   ],
   "exclude": [
     "node_modules",

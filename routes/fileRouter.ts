@@ -1,5 +1,5 @@
 import express, { Router } from 'express';
-import { getPublic } from '../controllers/fileController.ts';
+import { getPublic } from '../controllers/fileController.js';
 
 const router: Router = express.Router();
 

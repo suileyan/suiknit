@@ -1,7 +1,8 @@
+// logger.ts
 import fs from 'fs/promises';
 import path from 'node:path';
 import { createWriteStream, WriteStream } from 'node:fs';
-import { logConfig } from '../config/logConfig.ts';
+import { logConfig } from '../config/logConfig.js';
 import type { Request } from 'express';
 
 // 缓存日志文件流
@@ -22,7 +23,7 @@ const getLogStream = async (): Promise<WriteStream> => {
     await fs.mkdir(dirPath, { recursive: true });
 
     if (!logStreams.has(filePath)) {
-        const stream = createWriteStream(filePath, { flags: 'a', encoding: 'utf8'});
+        const stream = createWriteStream(filePath, { flags: 'a', encoding: 'utf8' });
         logStreams.set(filePath, stream);
     }
 
@@ -30,22 +31,20 @@ const getLogStream = async (): Promise<WriteStream> => {
 };
 
 // 检查路径是否应该被排除
-const shouldExcludePath = (path: string, excludeList: string[]): boolean => {
-    return excludeList.some(excludePath =>
-        path === excludePath || path.startsWith(excludePath + '/')
-    );
+const shouldExcludePath = (reqPath: string, excludeList: string[]): boolean => {
+    return excludeList.some(excludePath => reqPath === excludePath || reqPath.startsWith(excludePath + '/'));
 };
 
 // 过滤敏感字段
-const filterSensitiveFields = (obj: any, sensitiveFields: string[]): any => {
+const filterSensitiveFields = (obj: any, sensitiveFields: string[], placeholder: string): any => {
     if (!obj || typeof obj !== 'object') return obj;
 
     const filtered: any = Array.isArray(obj) ? [] : {};
     for (const [key, value] of Object.entries(obj)) {
         if (sensitiveFields.includes(key.toLowerCase())) {
-            filtered[key] = '[FILTERED]';
+            filtered[key] = placeholder;
         } else if (typeof value === 'object' && value !== null) {
-            filtered[key] = filterSensitiveFields(value, sensitiveFields);
+            filtered[key] = filterSensitiveFields(value, sensitiveFields, placeholder);
         } else {
             filtered[key] = value;
         }
@@ -55,46 +54,41 @@ const filterSensitiveFields = (obj: any, sensitiveFields: string[]): any => {
 
 // 格式化日志数据
 const formatLogData = (req: Request, data: any, status: number, consume: number): string | null => {
-    // 检查是否完全排除路径
-    if (shouldExcludePath(req.path, logConfig.excludePaths)) {
-        return null;
-    }
+    if (shouldExcludePath(req.path, logConfig.excludePaths)) return null;
 
-    // 检查是否排除 body
     const excludeBody = shouldExcludePath(req.path, logConfig.excludeBodyPaths);
 
-    // 过滤敏感字段
-    const filteredBody = req.body ? filterSensitiveFields(req.body, logConfig.sensitiveFields) : null;
-    const filteredQuery = req.query ? filterSensitiveFields(req.query, logConfig.sensitiveFields) : null;
-    const filteredData = data ? filterSensitiveFields(data, logConfig.sensitiveFields) : null;
+    const filteredBody = req.body
+        ? filterSensitiveFields(req.body, logConfig.sensitiveFields, logConfig.placeholder)
+        : null;
+    const filteredQuery = req.query
+        ? filterSensitiveFields(req.query, logConfig.sensitiveFields, logConfig.placeholder)
+        : null;
+    const filteredData = data
+        ? filterSensitiveFields(data, logConfig.sensitiveFields, logConfig.placeholder)
+        : null;
 
-    return `time:${new Date().toLocaleTimeString()},ip:${req.ip},path:"${req.path}",method:${req.method},query:${excludeBody ? '[EXCLUDED]' : (filteredQuery ? JSON.stringify(filteredQuery) : 'null')},body:${excludeBody ? '[EXCLUDED]' : (filteredBody ? JSON.stringify(filteredBody) : 'null')},status:'${status}',response:${filteredData ? JSON.stringify(filteredData) : 'null'},timestamp:'${new Date().toISOString()}',time-consuming:'${consume}ms'\n`;
+    return `time:${new Date().toLocaleTimeString()},ip:${req.ip},path:"${req.path}",method:${req.method},query:${
+        excludeBody ? '[EXCLUDED]' : filteredQuery ? JSON.stringify(filteredQuery) : 'null'
+    },body:${excludeBody ? '[EXCLUDED]' : filteredBody ? JSON.stringify(filteredBody) : 'null'},status:'${status}',response:${
+        filteredData ? JSON.stringify(filteredData) : 'null'
+    },timestamp:'${new Date().toISOString()}',time-consuming:'${consume}ms'\n`;
 };
 
 // 写入日志
 export const writeLog = async (req: Request, data: any, status: number, consume: number = 0): Promise<void> => {
     try {
-        // 检查是否完全排除路径
-        if (shouldExcludePath(req.path, logConfig.excludePaths)) {
-            return;
-        }
+        if (shouldExcludePath(req.path, logConfig.excludePaths)) return;
 
         const logStream = await getLogStream();
         const logData = formatLogData(req, data, status, consume);
 
-        // 如果格式化后的数据为 null，不写入日志
-        if (!logData) {
-            return;
-        }
+        if (!logData) return;
 
-        // 使用 Promise 包装写入操作
         await new Promise<void>((resolve, reject) => {
             logStream.write(logData, (err) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
+                if (err) reject(err);
+                else resolve();
             });
         });
 

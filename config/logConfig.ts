@@ -1,8 +1,9 @@
-// 日志配置文件
-interface LogConfig {
+// logConfig.ts
+export interface LogConfig {
     excludeBodyPaths: string[];
     excludePaths: string[];
     sensitiveFields: string[];
+    placeholder: string;
 }
 
 export const logConfig: LogConfig = {
@@ -11,7 +12,8 @@ export const logConfig: LogConfig = {
         '/health',
         '/status',
         '/ping',
-        '/metrics'
+        '/metrics',
+        '/auth/captcha'
     ],
 
     // 完全不记录日志的路径
@@ -26,6 +28,11 @@ export const logConfig: LogConfig = {
         'token',
         'authorization',
         'cookie',
-        'session'
-    ]
+        'session',
+        'captcha',
+        'captchaimage'
+    ],
+
+    // 屏蔽字段占位文字，可自定义
+    placeholder: '[已屏蔽]'
 };
