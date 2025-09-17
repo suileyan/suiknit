@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { createClient, RedisClientType } from 'redis';
+import { createClient } from 'redis';
 
 dotenv.config({ path: '.env.config' });
 
@@ -18,7 +18,7 @@ const redisConfig: RedisConfig = {
 };
 
 // 创建Redis客户端
-const redisClient: RedisClientType = createClient({
+const redisClient = createClient({
   socket: {
     host: redisConfig.host,
     port: redisConfig.port

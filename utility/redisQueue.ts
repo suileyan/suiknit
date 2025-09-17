@@ -59,12 +59,17 @@ export class RedisQueueProcessor {
     }
   }
 
-  // 将操作添加到队列
+  // 将数据库操作添加到 Redis 队列
   async enqueueOperation(operation: Omit<DatabaseOperation, 'id' | 'timestamp' | 'retryCount'>): Promise<void> {
     try {
+      if (!redisClient) {
+        console.error('Redis客户端未初始化');
+        return;
+      }
+      
       const operationWithMetadata: DatabaseOperation = {
         ...operation,
-        id: this.generateOperationId(),
+        id: `op_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
         timestamp: Date.now(),
         retryCount: 0
       };
@@ -79,7 +84,7 @@ export class RedisQueueProcessor {
 
   // 处理队列中的操作
   async processQueue(): Promise<void> {
-    if (this.isProcessing || !this.db) {
+    if (this.isProcessing || !this.db || !redisClient) {
       return;
     }
 
@@ -88,17 +93,22 @@ export class RedisQueueProcessor {
     try {
       while (true) {
         // 从队列中取出一个操作
-        const result = await redisClient.brPop(this.queueKey, 1);
+        const result = redisClient ? await redisClient.brPop(this.queueKey, 1) : null;
         
-        if (!result) {
-          // 没有更多操作，退出循环
+        if (!result || !redisClient) {
+          // 没有更多操作或Redis客户端未初始化，退出循环
           break;
         }
         
         const operation: DatabaseOperation = JSON.parse(result.element);
         
         // 将操作移到处理中队列
-        await redisClient.lPush(this.processingKey, result.element);
+        if (redisClient) {
+          await redisClient.lPush(this.processingKey, result.element);
+        } else {
+          console.error('Redis客户端未初始化');
+          break;
+        }
         
         try {
           // 处理操作
@@ -169,32 +179,50 @@ export class RedisQueueProcessor {
 
   // 从处理中队列移除
   private async removeFromProcessingQueue(element: string): Promise<void> {
-    await redisClient.lRem(this.processingKey, 1, element);
+    if (redisClient) {
+      await redisClient.lRem(this.processingKey, 1, element);
+    } else {
+      console.error('Redis客户端未初始化');
+    }
   }
 
   // 移动到失败队列
   private async moveToFailedQueue(element: string): Promise<void> {
-    await redisClient.lPush('db_operations_failed', element);
-  }
-
-  // 生成操作ID
-  private generateOperationId(): string {
-    return `op_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+    if (redisClient) {
+      await redisClient.lPush('db_operations_failed', element);
+    } else {
+      console.error('Redis客户端未初始化');
+    }
   }
 
   // 获取队列长度
   async getQueueLength(): Promise<number> {
-    return await redisClient.lLen(this.queueKey);
+    if (redisClient) {
+      return await redisClient.lLen(this.queueKey);
+    } else {
+      console.error('Redis客户端未初始化');
+      return 0;
+    }
   }
 
   // 获取处理中队列长度
   async getProcessingLength(): Promise<number> {
-    return await redisClient.lLen(this.processingKey);
+    if (redisClient) {
+      return await redisClient.lLen(this.processingKey);
+    } else {
+      console.error('Redis客户端未初始化');
+      return 0;
+    }
   }
 
   // 获取失败队列长度
   async getFailedLength(): Promise<number> {
-    return await redisClient.lLen('db_operations_failed');
+    if (redisClient) {
+      return await redisClient.lLen('db_operations_failed');
+    } else {
+      console.error('Redis客户端未初始化');
+      return 0;
+    }
   }
 }
 

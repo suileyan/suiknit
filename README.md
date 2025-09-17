@@ -41,11 +41,23 @@ suiknit/
 │   ├── auth.ts            # 认证相关路由
 │   ├── fileRouter.ts      # 文件相关路由
 │   └── index.ts           # 主要路由
+├── services/              # 业务逻辑服务目录
+│   └── authService.ts     # 认证相关业务逻辑
+├── middleware/            # 中间件目录
+│   ├── common.ts          # 通用中间件
+│   ├── blacklist.ts       # 黑名单和频率限制中间件
+│   ├── errorHandler.ts     # 错误处理中间件
+│   └── responseFormatter.ts # 响应格式化中间件
+├── validators/            # 验证器目录
+│   └── authValidator.ts   # 认证相关验证器
+├── exceptions/            # 自定义异常目录
+│   └── AppError.ts        # 自定义异常类
 ├── utility/               # 工具函数目录
 │   ├── jwt.ts             # JWT 相关工具函数
 │   ├── logger.ts          # 日志工具函数
 │   ├── mongoDB.ts         # MongoDB 数据库封装
 │   ├── mongoBackup.ts     # MongoDB 备份工具
+│   ├── mongoRestore.ts    # MongoDB 恢复工具
 │   ├── email.ts           # 邮件发送工具类
 │   ├── redisCache.ts      # Redis 缓存工具类
 │   └── redisQueue.ts      # Redis 队列处理工具类
@@ -146,6 +158,19 @@ npm run build
 
 ```bash
 npm run start
+```
+
+### 代码质量检查
+
+```bash
+# 检查 TypeScript 类型问题
+npm run type-check
+
+# 检查 ESLint 问题
+npm run lint
+
+# 自动修复 ESLint 可修复的问题
+npm run lint:fix
 ```
 
 ## API 接口
@@ -341,6 +366,87 @@ await emailService.sendHtml('user@example.com', 'HTML邮件', '<h1>HTML内容</h
 6. 所有数据库操作都必须通过 Redis 缓存和队列系统处理，以减轻数据库压力
 7. MongoDB 数据库会根据配置自动进行定时备份，确保数据安全（可通过 MONGO_BACKUP_ENABLED 配置项启用或禁用）
 8. 服务启动时会自动执行一次 MongoDB 备份（如果启用了备份功能）
+9. 使用 ESLint 进行代码质量检查，确保代码风格一致性
+
+## 代码质量检查
+
+项目集成了 ESLint 来确保代码质量和风格一致性：
+
+```bash
+# 检查 TypeScript 类型和 ESLint 问题
+npm run type-check
+npm run lint
+
+# 自动修复 ESLint 可修复的问题
+npm run lint:fix
+```
+
+## 配置热重载
+
+本项目支持配置文件的热重载功能，当 `.env.config` 文件被修改时，系统会自动重新加载配置，无需重启服务器。
+
+### 支持热重载的配置项
+
+- **服务器配置**：PORT、SERVER、LAN
+- **日志配置**：ISLOG、LOGPATH
+- **数据库配置**：DB_HOST、DB_PORT、DB_NAME、DB_USERNAME、DB_PASSWORD
+- **Redis配置**：REDIS_HOST、REDIS_PORT、REDIS_PASSWORD
+- **邮件配置**：EMAIL_HOST、EMAIL_PORT、EMAIL_SECURE、EMAIL_USER、EMAIL_PASS、EMAIL_FROM
+- **请求频率限制**：RATE_LIMIT_MAX_REQUESTS、RATE_LIMIT_WINDOW_MS、RATE_LIMIT_BLACKLIST_DURATION
+- **验证码配置**：CAPTCHA_SIZE、CAPTCHA_WIDTH、CAPTCHA_HEIGHT、CAPTCHA_EXPIRE
+- **邮箱验证码配置**：EMAIL_CODE_EXPIRE、EMAIL_CODE_LIMIT
+- **MongoDB备份配置**：MONGO_BACKUP_ENABLED、MONGO_BACKUP_PATH、MONGO_BACKUP_SCHEDULE、MONGO_BACKUP_RETENTION_DAYS
+
+### 使用方法
+
+1. 修改 `.env.config` 文件中的配置项
+2. 保存文件后，系统会自动检测到变化并重新加载配置
+3. 对于某些配置（如服务器端口），可能需要重新启动服务器才能生效
+
+### 配置项说明
+
+新增以下可选配置项来控制各组件的启用状态：
+
+- `DB_ENABLED`：是否启用数据库连接（默认：true）
+- `REDIS_ENABLED`：是否启用Redis（默认：true）
+- `EMAIL_ENABLED`：是否启用邮件服务（默认：true）
+- `RATE_LIMIT_ENABLED`：是否启用请求速率控制（默认：true）
+
+## 文件依赖关系
+
+项目中的主要文件依赖关系如下：
+
+```
+server.ts
+├── config/dbConfig.ts
+├── config/redisConfig.ts
+├── routes/index.ts
+│   ├── controllers/indexController.ts
+├── routes/fileRouter.ts
+│   ├── controllers/fileController.ts
+├── routes/auth.ts
+│   ├── controllers/authController.ts
+│   │   ├── services/authService.ts
+│   │   │   ├── models/User.ts
+│   │   │   ├── utility/jwt.ts
+│   │   │   ├── config/redisConfig.ts
+│   │   │   ├── utility/email.ts
+│   │   │   ├── utility/redisQueue.ts
+│   │   │   ├── validators/authValidator.ts
+│   │   │   └── exceptions/AppError.ts
+├── utility/mongoDB.ts
+├── utility/redisQueue.ts
+│   ├── config/redisConfig.ts
+│   ├── utility/redisCache.ts
+├── utility/mongoBackup.ts
+│   ├── config/dbConfig.ts
+├── middleware/common.ts
+├── middleware/errorHandler.ts
+├── middleware/blacklist.ts
+│   ├── config/redisConfig.ts
+├── middleware/responseFormatter.ts
+└── utility/logger.ts
+```
 
 ## License
 

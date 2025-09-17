@@ -1,4 +1,7 @@
 import { redisClient } from '../config/redisConfig.js';
+import dotenv from 'dotenv';
+
+dotenv.config({ path: '.env.config' });
 
 /**
  * 生成缓存键
@@ -24,6 +27,11 @@ export async function cacheData(
   expireSeconds: number = 300
 ): Promise<void> {
   try {
+    if (!redisClient) {
+      console.error('Redis客户端未初始化');
+      return;
+    }
+    
     const cacheKey = generateCacheKey(collection, id);
     const serializedData = JSON.stringify(data);
     await redisClient.setEx(cacheKey, expireSeconds, serializedData);
@@ -43,6 +51,11 @@ export async function getCachedData(
   id: string
 ): Promise<any> {
   try {
+    if (!redisClient) {
+      console.error('Redis客户端未初始化');
+      return null;
+    }
+    
     const cacheKey = generateCacheKey(collection, id);
     const cachedData = await redisClient.get(cacheKey);
     
@@ -67,6 +80,11 @@ export async function removeCachedData(
   id: string
 ): Promise<void> {
   try {
+    if (!redisClient) {
+      console.error('Redis客户端未初始化');
+      return;
+    }
+    
     const cacheKey = generateCacheKey(collection, id);
     await redisClient.del(cacheKey);
   } catch (error) {

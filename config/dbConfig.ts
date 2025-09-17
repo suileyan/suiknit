@@ -1,3 +1,7 @@
+import dotenv from 'dotenv';
+
+dotenv.config({ path: '.env.config' });
+
 interface DBConfig {
   host: string | undefined;
   port: string | undefined;
