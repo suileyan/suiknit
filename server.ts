@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.js';
 import dbConfig from './config/dbConfig.js';
 import { connectRedis, redisClient } from './config/redisConfig.js';
 import { startQueueProcessing } from './utility/redisQueue.js';
+import { startMongoBackupSchedule } from './utility/mongoBackup.js';
 
 // 定义统一返回格式的接口
 interface ApiResponse {
@@ -207,4 +208,7 @@ app.listen(+port, LANMode ? server : '', () => {
     startQueueProcessing().catch(err => {
         console.error('启动Redis队列处理失败:', err);
     });
+    
+    // 启动MongoDB备份定时任务
+    startMongoBackupSchedule();
 });

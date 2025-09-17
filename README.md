@@ -45,6 +45,7 @@ suiknit/
 │   ├── jwt.ts             # JWT 相关工具函数
 │   ├── logger.ts          # 日志工具函数
 │   ├── mongoDB.ts         # MongoDB 数据库封装
+│   ├── mongoBackup.ts     # MongoDB 备份工具
 │   ├── email.ts           # 邮件发送工具类
 │   ├── redisCache.ts      # Redis 缓存工具类
 │   └── redisQueue.ts      # Redis 队列处理工具类
@@ -122,6 +123,11 @@ EMAIL_SECURE = false
 EMAIL_USER = your_email@gmail.com
 EMAIL_PASS = your_email_password
 EMAIL_FROM = your_email@gmail.com
+
+# MongoDB 备份配置
+MONGO_BACKUP_PATH = ./backups
+MONGO_BACKUP_SCHEDULE = 0 2 * * *  # 每天凌晨2点执行备份
+MONGO_BACKUP_RETENTION_DAYS = 7  # 保留7天的备份
 ```
 
 ### 开发模式运行
@@ -246,7 +252,52 @@ npm run start
 - `RATE_LIMIT_WINDOW_MS`: 时间窗口大小，单位毫秒 (默认: 60000，即1分钟)
 - `RATE_LIMIT_BLACKLIST_DURATION`: IP黑名单持续时间，单位秒 (默认: 3600，即1小时)
 
-## 邮件工具类
+## MongoDB 备份功能
+
+项目包含自动 MongoDB 备份功能，使用 node-cron 实现定时备份：
+
+- 服务启动时自动执行一次备份
+- 定时备份 MongoDB 数据库
+- 自动压缩备份文件为 .gz 格式
+- 自动清理过期备份文件
+- 可配置备份路径、定时计划和保留天数
+
+### 配置项
+
+- `MONGO_BACKUP_ENABLED`: 是否启用 MongoDB 备份功能 (默认: true)
+- `MONGO_BACKUP_PATH`: 备份文件存储路径 (默认: ./backups)
+- `MONGO_BACKUP_SCHEDULE`: 备份定时计划，使用 cron 表达式 (默认: "0 2 * * *" 每天凌晨2点)
+- `MONGO_BACKUP_RETENTION_DAYS`: 备份文件保留天数 (默认: 7天)
+
+### 手动执行备份
+
+```typescript
+import { manualMongoBackup } from './utility/mongoBackup.js';
+
+// 手动执行一次备份
+await manualMongoBackup();
+```
+
+### 恢复备份
+
+项目还提供了从备份文件恢复数据库的功能：
+
+```bash
+# 列出所有可用的备份文件并显示恢复命令
+npm run restore
+
+# 从指定备份文件恢复数据库
+npm run restore mongodb-testdb-2025-09-17T02-03-49-601Z
+```
+
+您也可以在代码中直接调用恢复功能：
+
+```typescript
+import { performMongoRestore } from './utility/mongoRestore.js';
+
+// 从指定备份文件恢复数据库
+await performMongoRestore('mongodb-testdb-2025-09-17T02-03-49-601Z');
+```
 
 项目包含一个功能完整的邮件发送工具类 (`emailService`)，提供以下功能：
 
@@ -288,6 +339,8 @@ await emailService.sendHtml('user@example.com', 'HTML邮件', '<h1>HTML内容</h
 4. 使用环境变量进行配置管理
 5. 通过自定义 MongoDB 封装类进行数据库操作
 6. 所有数据库操作都必须通过 Redis 缓存和队列系统处理，以减轻数据库压力
+7. MongoDB 数据库会根据配置自动进行定时备份，确保数据安全（可通过 MONGO_BACKUP_ENABLED 配置项启用或禁用）
+8. 服务启动时会自动执行一次 MongoDB 备份（如果启用了备份功能）
 
 ## License
 
