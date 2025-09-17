@@ -1,5 +1,8 @@
 import mongoose, { Document, Schema, Model } from 'mongoose';
 import bcrypt from 'bcryptjs';
+import dotenv from 'dotenv';
+
+dotenv.config({ path: '.env.config' });
 
 // 用户权限枚举
 export enum UserRole {
@@ -38,7 +41,7 @@ const userSchema: Schema<IUser> = new Schema({
     unique: true,
     trim: true,
     lowercase: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, '请输入有效的邮箱地址']
+    match: [/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, '请输入有效的邮箱地址']
   },
   name: {
     type: String,
@@ -82,8 +85,10 @@ userSchema.pre<IUser>('save', async function (next) {
   if (!this.isModified('password')) return next();
   
   try {
+    // 从环境变量获取salt rounds，如果没有则默认为10
+    const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS || '10');
     // 生成salt并哈希密码
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(saltRounds);
     this.password = await bcrypt.hash(this.password, salt);
     next();
   } catch (error) {

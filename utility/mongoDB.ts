@@ -11,6 +11,7 @@ import mongoose, {
     QueryOptions,
     RootFilterQuery
 } from 'mongoose'
+import { cacheData, getCachedData, removeCachedData } from './redisCache.js';
 
 export default class mgDB {
     private readonly url: string | null = null
@@ -47,7 +48,14 @@ export default class mgDB {
         doc: Partial<T>
     ): Promise<Document<T>> {
         const Model = this._getModel<T>(collectionName)
-        return Model.create(doc)
+        const result = await Model.create(doc)
+        
+        // 将结果缓存到Redis
+        if ((result as any)._id) {
+            await cacheData(collectionName, (result as any)._id.toString(), result);
+        }
+        
+        return result
     }
 
     async insertMany<T = any>(
@@ -57,15 +65,40 @@ export default class mgDB {
         const Model = this._getModel<T>(collectionName)
         // Cast the result to the expected type
         const result = await Model.insertMany(docs)
-        return result as unknown as Document<T>[]
+        const typedResult = result as unknown as Document<T>[]
+        
+        // 将结果缓存到Redis
+        for (const doc of typedResult) {
+            if ((doc as any)._id) {
+                await cacheData(collectionName, (doc as any)._id.toString(), doc);
+            }
+        }
+        
+        return typedResult
     }
 
     async findOne<T = any>(
         collectionName: string,
         condition: RootFilterQuery<Document<T>>
     ): Promise<T | null> {
-        const Model = this._getModel<T>(collectionName)
-        return Model.findOne(condition).lean<T>().exec()
+        // 尝试从缓存中获取
+        if ((condition as any)._id) {
+            const cachedResult = await getCachedData(collectionName, (condition as any)._id.toString());
+            if (cachedResult) {
+                console.log(`从缓存中获取数据: ${collectionName}:${(condition as any)._id.toString()}`);
+                return cachedResult;
+            }
+        }
+        
+        const Model = this._getModel<T>(collectionName);
+        const result = await Model.findOne(condition).lean<T>().exec();
+        
+        // 将结果缓存到Redis
+        if (result && (result as any)._id) {
+            await cacheData(collectionName, (result as any)._id.toString(), result);
+        }
+        
+        return result;
     }
 
     async findMany<T = any>(
@@ -85,7 +118,14 @@ export default class mgDB {
         options: object = {}
     ): Promise<UpdateResult> {
         const Model = this._getModel<T>(collectionName)
-        return Model.updateOne(condition, update, options)
+        const result = await Model.updateOne(condition, update, options)
+        
+        // 如果更新了文档，从缓存中删除旧数据
+        if (result.modifiedCount > 0 && (condition as any)._id) {
+            await removeCachedData(collectionName, (condition as any)._id.toString());
+        }
+        
+        return result
     }
 
     async updateMany<T = any>(
@@ -95,7 +135,14 @@ export default class mgDB {
         options: object = {}
     ): Promise<UpdateResult> {
         const Model = this._getModel<T>(collectionName)
-        return Model.updateMany(condition, update, options)
+        const result = await Model.updateMany(condition, update, options)
+        
+        // 如果更新了文档，从缓存中删除旧数据
+        if (result.modifiedCount > 0 && (condition as any)._id) {
+            await removeCachedData(collectionName, (condition as any)._id.toString());
+        }
+        
+        return result
     }
 
     async deleteOne<T = any>(
@@ -103,7 +150,14 @@ export default class mgDB {
         condition: RootFilterQuery<Document<T>>
     ): Promise<DeleteResult> {
         const Model = this._getModel<T>(collectionName)
-        return Model.deleteOne(condition)
+        const result = await Model.deleteOne(condition)
+        
+        // 从缓存中删除数据
+        if ((condition as any)._id) {
+            await removeCachedData(collectionName, (condition as any)._id.toString());
+        }
+        
+        return result
     }
 
     async deleteMany<T = any>(
@@ -111,7 +165,14 @@ export default class mgDB {
         condition: RootFilterQuery<Document<T>>
     ): Promise<DeleteResult> {
         const Model = this._getModel<T>(collectionName)
-        return Model.deleteMany(condition)
+        const result = await Model.deleteMany(condition)
+        
+        // 从缓存中删除数据
+        if ((condition as any)._id) {
+            await removeCachedData(collectionName, (condition as any)._id.toString());
+        }
+        
+        return result
     }
 
     // -------------------- 其他功能 --------------------

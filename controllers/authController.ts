@@ -1,4 +1,3 @@
-// authController.ts - 处理认证相关请求的控制器
 import type { Request, Response } from 'express';
 import { generateJWT, verifyJWT } from '../utility/jwt.js';
 import jwt from 'jsonwebtoken';
@@ -6,6 +5,8 @@ import User, { UserRole } from '../models/User.js';
 import svgCaptcha from 'svg-captcha';
 import dotenv from 'dotenv';
 import { redisClient } from '../config/redisConfig.js';
+import { emailService } from '../utility/email.js';
+import { redisCacheMiddleware, DB_OPERATION_TYPE } from '../utility/redisQueue.js';
 
 dotenv.config({ path: '.env.config' });
 
@@ -15,6 +16,17 @@ const captchaConfig = {
   width: parseInt(process.env.CAPTCHA_WIDTH || '120', 10),
   height: parseInt(process.env.CAPTCHA_HEIGHT || '40', 10),
   expire: parseInt(process.env.CAPTCHA_EXPIRE || '300', 10) // 默认5分钟
+};
+
+// 从环境变量获取邮箱验证码配置
+interface EmailCodeConfig {
+  expire: number;
+  limit: number;
+}
+
+const emailCodeConfig: EmailCodeConfig = {
+  expire: parseInt(process.env.EMAIL_CODE_EXPIRE || '300', 10), // 默认5分钟
+  limit: parseInt(process.env.EMAIL_CODE_LIMIT || '60', 10) // 默认60秒
 };
 
 // 生成验证码图片
@@ -59,31 +71,46 @@ export const generateCaptcha = async (req: Request, res: Response): Promise<void
 // 注册处理函数
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password, name, captchaId, captchaCode } = req.body;
+    const { email, password, name, captchaId, captchaCode, emailCode } = req.body;
 
     // 验证参数
-    if (!email || !password || !name || !captchaId || !captchaCode) {
+    if (!email || !password || !name || !captchaId || !captchaCode || !emailCode) {
       res.status(400).json({
         code: 400,
-        message: '邮箱、密码、姓名、验证码ID和验证码不能为空',
+        message: '邮箱、密码、姓名、图像验证码ID、图像验证码和邮箱验证码不能为空',
         data: null
       });
       return;
     }
 
-    // 验证验证码（从Redis中获取）
-    const storedCode = await redisClient.get(captchaId);
-    if (!storedCode || storedCode !== captchaCode.toLowerCase()) {
+    // 验证图像验证码（从Redis中获取）
+    const storedCaptcha = await redisClient.get(captchaId);
+    if (!storedCaptcha || storedCaptcha !== captchaCode.toLowerCase()) {
       res.status(400).json({
         code: 400,
-        message: '验证码错误或已过期',
+        message: '图像验证码错误或已过期',
         data: null
       });
       return;
     }
 
-    // 验证成功后立即删除验证码，防止重复使用
+    // 验证成功后立即删除图像验证码，防止重复使用
     await redisClient.del(captchaId);
+
+    // 验证邮箱验证码（从Redis中获取）
+    const codeKey = `email_code_register_${email}`;
+    const storedEmailCode = await redisClient.get(codeKey);
+    if (!storedEmailCode || storedEmailCode !== emailCode) {
+      res.status(400).json({
+        code: 400,
+        message: '邮箱验证码错误或已过期',
+        data: null
+      });
+      return;
+    }
+
+    // 验证成功后立即删除邮箱验证码，防止重复使用
+    await redisClient.del(codeKey);
 
     // 检查用户是否已存在
     const existingUser = await User.findByEmail(email);
@@ -102,6 +129,20 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       password,
       name,
       role: UserRole.USER
+    });
+
+    // 将用户保存操作添加到Redis队列
+    await redisCacheMiddleware({
+      type: DB_OPERATION_TYPE.INSERT,
+      collection: 'users',
+      data: {
+        email,
+        password,
+        name,
+        role: UserRole.USER,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
     });
 
     // 保存用户到数据库
@@ -139,52 +180,87 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 // 登录处理函数
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password, captchaId, captchaCode } = req.body;
+    const { email, password, emailCode, captchaId, captchaCode } = req.body;
 
-    // 验证参数
-    if (!email || !password || !captchaId || !captchaCode) {
+    // 验证基本参数
+    if (!email) {
       res.status(400).json({
         code: 400,
-        message: '邮箱、密码、验证码ID和验证码不能为空',
+        message: '邮箱不能为空',
         data: null
       });
       return;
     }
 
-    // 验证验证码（从Redis中获取）
-    const storedCode = await redisClient.get(captchaId);
-    if (!storedCode || storedCode !== captchaCode.toLowerCase()) {
+    // 确定登录方式
+    const isPasswordLogin = !!(password && captchaId && captchaCode);
+    const isEmailCodeLogin = !!emailCode;
+
+    // 验证登录方式
+    if (!isPasswordLogin && !isEmailCodeLogin) {
       res.status(400).json({
         code: 400,
-        message: '验证码错误或已过期',
+        message: '请选择登录方式：密码登录需要密码和图像验证码，邮箱验证码登录需要邮箱验证码',
         data: null
       });
       return;
     }
 
-    // 验证成功后立即删除验证码，防止重复使用
-    await redisClient.del(captchaId);
+    // 如果是密码登录，验证图像验证码
+    if (isPasswordLogin) {
+      const storedCode = await redisClient.get(captchaId);
+      if (!storedCode || storedCode !== captchaCode.toLowerCase()) {
+        res.status(400).json({
+          code: 400,
+          message: '图像验证码错误或已过期',
+          data: null
+        });
+        return;
+      }
 
-    // 查找用户
+      // 验证成功后立即删除验证码，防止重复使用
+      await redisClient.del(captchaId);
+    }
+
+    // 如果是邮箱验证码登录，验证邮箱验证码
+    if (isEmailCodeLogin) {
+      const codeKey = `email_code_login_${email}`;
+      const storedCode = await redisClient.get(codeKey);
+      if (!storedCode || storedCode !== emailCode) {
+        res.status(400).json({
+          code: 400,
+          message: '邮箱验证码错误或已过期',
+          data: null
+        });
+        return;
+      }
+
+      // 验证成功后立即删除验证码，防止重复使用
+      await redisClient.del(codeKey);
+    }
+
+    // 查找用户（会自动使用Redis缓存）
     const user = await User.findByEmail(email);
     if (!user) {
       res.status(401).json({
         code: 401,
-        message: '邮箱或密码错误',
+        message: '用户不存在',
         data: null
       });
       return;
     }
 
-    // 验证密码
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
-      res.status(401).json({
-        code: 401,
-        message: '邮箱或密码错误',
-        data: null
-      });
-      return;
+    // 如果是密码登录，验证密码
+    if (isPasswordLogin) {
+      const isPasswordValid = await user.comparePassword(password);
+      if (!isPasswordValid) {
+        res.status(401).json({
+          code: 401,
+          message: '密码错误',
+          data: null
+        });
+        return;
+      }
     }
 
     // 更新最后登录时间
@@ -354,8 +430,20 @@ export const updateUserInfo = async (req: Request, res: Response): Promise<void>
     // 更新用户信息
     if (name) user.name = name;
     if (avatarPath) user.avatarPath = avatarPath;
-    
     user.updatedAt = new Date();
+    
+    // 将更新操作添加到Redis队列
+    await redisCacheMiddleware({
+      type: DB_OPERATION_TYPE.UPDATE,
+      collection: 'users',
+      condition: { _id: user._id },
+      data: {
+        name: name || user.name,
+        avatarPath: avatarPath || user.avatarPath,
+        updatedAt: new Date()
+      }
+    });
+
     const updatedUser = await user.save();
 
     res.status(200).json({
@@ -376,6 +464,106 @@ export const updateUserInfo = async (req: Request, res: Response): Promise<void>
     res.status(500).json({
       code: 500,
       message: '更新用户信息失败',
+      data: null
+    });
+  }
+};
+
+// 发送邮箱验证码
+export const sendEmailCode = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email, type } = req.body;
+    const ip = req.ip;
+      console.log("Headers:", req.headers);
+      console.log("Raw body:", req.body);
+      console.log("Parsed email:", req.body.email, JSON.stringify(req.body.email));
+
+    // 验证参数
+    if (!email || !type) {
+      res.status(400).json({
+        code: 400,
+        message: '邮箱和用途类型不能为空',
+        data: null
+      });
+      return;
+    }
+
+    // 验证邮箱格式
+      const emailRegex =
+          /^(?!.*\.\.)[a-zA-Z0-9._%+-]{1,64}@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,63})+$/;
+
+      if (!emailRegex.test(email)) {
+      res.status(400).json({
+        code: 400,
+        message: '邮箱格式不正确',
+        data: null
+      });
+      return;
+    }
+
+    // 检查是否在限制时间内
+    const limitKey = `email_code_limit_${type}_${ip}`;
+    const isLimited = await redisClient.exists(limitKey);
+    if (isLimited) {
+      const ttl = await redisClient.ttl(limitKey);
+      res.status(429).json({
+        code: 429,
+        message: `请求过于频繁，请${ttl}秒后再试`,
+        data: null
+      });
+      return;
+    }
+
+    // 生成6位数字验证码
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // 存储验证码到Redis，设置过期时间
+    const codeKey = `email_code_${type}_${email}`;
+    await redisClient.setEx(codeKey, emailCodeConfig.expire, code);
+
+    // 设置IP限制，防止频繁发送
+    await redisClient.setEx(limitKey, emailCodeConfig.limit, '1');
+
+    // 发送邮件
+    const subject = '验证码';
+    const content = `您正在${type}，验证码为：${code}，${Math.floor(emailCodeConfig.expire/60)}分钟内有效。`;
+    
+    const emailResult = await emailService.send(email, subject, content);
+    
+    // 检查邮件发送结果
+    if (emailResult && emailResult.length > 0) {
+      const result = emailResult[0];
+      if (result && result.success) {
+        res.status(200).json({
+          code: 200,
+          message: '验证码发送成功',
+          data: null
+        });
+      } else if (result) {
+        res.status(500).json({
+          code: 500,
+          message: '验证码发送失败：' + result.message,
+          data: null
+        });
+      } else {
+        res.status(500).json({
+          code: 500,
+          message: '验证码发送失败：未知错误',
+          data: null
+        });
+      }
+    } else {
+      res.status(500).json({
+        code: 500,
+        message: '验证码发送失败：未知错误',
+        data: null
+      });
+    }
+  } catch (error) {
+    console.error('发送邮箱验证码时出错:', error);
+    res.status(500).json({
+      code: 500,
+      message: '发送验证码失败',
       data: null
     });
   }

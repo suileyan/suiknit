@@ -1,6 +1,6 @@
 # Suiknit API Server
 
-一个基于 Node.js、Express 和 TypeScript 构建的现代化后端 API 服务器，集成了 MongoDB 数据库、JWT 认证和自定义日志系统。
+一个基于 Node.js、Express 和 TypeScript 构建的现代化后端 API 服务器，集成了 MongoDB 数据库、JWT 认证、Redis 缓存和队列处理系统。
 
 ## 功能特性
 
@@ -8,6 +8,7 @@
 - **TypeScript**: 使用 TypeScript 提供类型安全和更好的开发体验
 - **MongoDB 集成**: 通过 Mongoose ODM 连接 MongoDB 数据库
 - **JWT 认证**: 基于 JSON Web Token 的用户认证机制
+- **Redis 缓存和队列**: 使用 Redis 进行数据缓存和数据库操作队列处理
 - **自定义日志系统**: 带有敏感数据过滤功能的日志记录
 - **环境配置**: 通过 .env.config 文件进行环境配置管理
 
@@ -18,6 +19,7 @@
 - [TypeScript](https://www.typescriptlang.org/) - JavaScript 的超集，添加了静态类型
 - [MongoDB](https://www.mongodb.com/) - NoSQL 数据库
 - [Mongoose](https://mongoosejs.com/) - MongoDB 对象建模工具
+- [Redis](https://redis.io/) - 内存数据结构存储
 - [JSON Web Token](https://jwt.io/) - 用于安全令牌传输的开放标准
 
 ## 项目结构
@@ -27,11 +29,14 @@ suiknit/
 ├── server.ts              # 应用入口文件
 ├── config/                # 配置文件目录
 │   ├── dbConfig.ts        # 数据库配置
-│   └── logConfig.ts       # 日志配置
+│   ├── logConfig.ts       # 日志配置
+│   └── redisConfig.ts     # Redis 配置
 ├── controllers/           # 控制器目录
 │   ├── authController.ts  # 认证相关控制器
 │   ├── fileController.ts  # 文件相关控制器
 │   └── indexController.ts # 主要控制器
+├── models/                # 数据库模型目录
+│   └── User.ts            # 用户模型
 ├── routes/                # 路由目录
 │   ├── auth.ts            # 认证相关路由
 │   ├── fileRouter.ts      # 文件相关路由
@@ -39,7 +44,10 @@ suiknit/
 ├── utility/               # 工具函数目录
 │   ├── jwt.ts             # JWT 相关工具函数
 │   ├── logger.ts          # 日志工具函数
-│   └── mongoDB.ts         # MongoDB 数据库封装
+│   ├── mongoDB.ts         # MongoDB 数据库封装
+│   ├── email.ts           # 邮件发送工具类
+│   ├── redisCache.ts      # Redis 缓存工具类
+│   └── redisQueue.ts      # Redis 队列处理工具类
 ├── .env.config            # 环境配置文件
 ├── package.json           # 项目依赖和脚本
 └── tsconfig.json          # TypeScript 配置
@@ -51,6 +59,7 @@ suiknit/
 
 - Node.js >= 14.x
 - MongoDB >= 4.x
+- Redis >= 5.x
 
 ### 安装依赖
 
@@ -75,12 +84,44 @@ LOGPATH = ./logs
 # jwt 相关配置
 JWENCRPTION = your_secret_key
 
+# 密码配置
+BCRYPT_SALT_ROUNDS = 12
+
 # 数据库配置
 DB_HOST = localhost
 DB_PORT = 27017
 DB_NAME = testdb
 DB_USERNAME =
 DB_PASSWORD =
+
+# 验证码配置
+CAPTCHA_SIZE = 4
+CAPTCHA_WIDTH = 120
+CAPTCHA_HEIGHT = 40
+CAPTCHA_EXPIRE = 300
+
+# 邮箱验证码配置
+EMAIL_CODE_EXPIRE = 300
+EMAIL_CODE_LIMIT = 60
+
+# 请求频率限制配置
+RATE_LIMIT_MAX_REQUESTS = 100
+RATE_LIMIT_WINDOW_MS = 60000
+RATE_LIMIT_BLACKLIST_DURATION = 3600
+
+# Redis配置
+REDIS_HOST = localhost
+REDIS_PORT = 6379
+REDIS_PASSWORD =
+
+# 邮件配置
+# Gmail示例配置 (需要开启"安全性较低的应用访问权限"或使用应用专用密码)
+EMAIL_HOST = smtp.gmail.com
+EMAIL_PORT = 587
+EMAIL_SECURE = false
+EMAIL_USER = your_email@gmail.com
+EMAIL_PASS = your_email_password
+EMAIL_FROM = your_email@gmail.com
 ```
 
 ### 开发模式运行
@@ -105,8 +146,13 @@ npm run start
 
 ### 认证接口
 
+- `GET /auth/captcha` - 获取图像验证码
+- `POST /auth/sendEmailCode` - 发送邮箱验证码
+- `POST /auth/register` - 用户注册
 - `POST /auth/login` - 用户登录
 - `GET /auth/loginByToken` - 使用 Token 验证身份
+- `POST /auth/logout` - 用户注销
+- `PUT /auth/update` - 更新用户信息
 
 ### 主要接口
 
@@ -128,6 +174,23 @@ npm run start
 - 事务支持
 - 集合管理
 - 数据库级别操作
+- Redis 缓存支持（查询操作自动缓存）
+- Redis 队列处理（写操作先入队列）
+
+## Redis 缓存和队列系统
+
+项目现在使用 Redis 实现了两个重要功能来减轻数据库压力：
+
+### Redis 缓存
+- 自动缓存所有查询操作的结果
+- 提供缓存数据的获取、存储和删除功能
+- 减少对数据库的直接查询，提高响应速度
+
+### Redis 队列
+- 所有数据库写操作（插入、更新、删除）都先加入 Redis 队列
+- 异步处理数据库操作，提高系统响应性
+- 实现操作重试机制和失败处理
+- 有效缓解数据库压力
 
 ## 认证系统
 
@@ -135,6 +198,30 @@ npm run start
 
 - `generateJWT`: 生成新的 JWT token
 - `verifyJWT`: 验证 JWT token 的有效性
+
+### 注册流程
+
+1. 用户请求图像验证码（GET /auth/captcha）
+2. 用户请求发送邮箱验证码（POST /auth/sendEmailCode）
+3. 系统发送验证码到用户邮箱
+4. 用户使用邮箱、密码、姓名、图像验证码和邮箱验证码进行注册（POST /auth/register）
+
+### 登录流程
+
+支持两种登录方式：
+
+1. **密码登录**：
+   - 用户请求图像验证码（GET /auth/captcha）
+   - 用户使用邮箱、密码和图像验证码登录（POST /auth/login）
+
+2. **邮箱验证码登录**：
+   - 用户请求发送登录邮箱验证码（POST /auth/sendEmailCode，type=login）
+   - 用户使用邮箱和邮箱验证码登录（POST /auth/login）
+
+### 密码安全
+
+- 使用 bcryptjs 对密码进行哈希处理
+- 支持通过环境变量配置 bcrypt salt rounds（BCRYPT_SALT_ROUNDS）
 
 ## 日志系统
 
@@ -145,6 +232,54 @@ npm run start
 - 路径排除功能 (健康检查、静态文件等)
 - 请求/响应日志记录及耗时统计
 
+## 请求频率限制和IP黑名单
+
+项目包含基于Redis的请求频率限制和IP黑名单功能：
+
+- 限制每个IP在指定时间窗口内的请求次数
+- 超过限制的IP将被自动拉黑
+- 黑名单IP将被拒绝访问所有接口
+
+### 配置项
+
+- `RATE_LIMIT_MAX_REQUESTS`: 每个时间窗口内允许的最大请求数 (默认: 100)
+- `RATE_LIMIT_WINDOW_MS`: 时间窗口大小，单位毫秒 (默认: 60000，即1分钟)
+- `RATE_LIMIT_BLACKLIST_DURATION`: IP黑名单持续时间，单位秒 (默认: 3600，即1小时)
+
+## 邮件工具类
+
+项目包含一个功能完整的邮件发送工具类 (`emailService`)，提供以下功能：
+
+- 支持多种收件人格式：
+  - 单个邮箱地址
+  - 邮箱地址数组（群发相同内容）
+  - 对象格式 {email: content}（个性化内容）
+  - 对象数组格式 [{email: '', content: ''}]（个性化内容）
+- 支持文本和HTML格式邮件
+- 完善的错误处理和日志记录
+- 基于 nodemailer 实现，支持各种邮件服务商
+
+### 使用示例
+
+```typescript
+import { emailService } from './utility/email.js';
+
+// 发送单个邮件
+await emailService.send('user@example.com', '邮件主题', '邮件内容');
+
+// 发送多个邮件（相同内容）
+await emailService.send(['user1@example.com', 'user2@example.com'], '邮件主题', '邮件内容');
+
+// 发送多个邮件（不同内容）
+await emailService.send({
+  'user1@example.com': '用户1的内容',
+  'user2@example.com': '用户2的内容'
+}, '邮件主题', '');
+
+// 发送HTML邮件
+await emailService.sendHtml('user@example.com', 'HTML邮件', '<h1>HTML内容</h1>');
+```
+
 ## 开发规范
 
 1. 使用 TypeScript 严格模式进行开发
@@ -152,6 +287,7 @@ npm run start
 3. 在所有控制器中实现完整的错误处理
 4. 使用环境变量进行配置管理
 5. 通过自定义 MongoDB 封装类进行数据库操作
+6. 所有数据库操作都必须通过 Redis 缓存和队列系统处理，以减轻数据库压力
 
 ## License
 

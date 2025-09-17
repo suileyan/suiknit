@@ -34,12 +34,49 @@ GET /auth/captcha
 
 ---
 
+### 2. Send Email Verification Code
+
+**POST** `/auth/sendEmailCode`
+
+#### Description
+Send a verification code to the user's email address
+
+#### Parameters
+| Name | Type | In | Required | Description |
+|------|------|----|----------|-------------|
+| email | string | body | Yes | User's email address |
+| type | string | body | Yes | Purpose of verification (e.g., "register", "login", "resetPassword") |
+
+#### Request Example
+```json
+{
+  "email": "user@example.com",
+  "type": "register"
+}
+```
+
+#### Success Response (200)
+```json
+{
+  "code": 200,
+  "message": "验证码发送成功",
+  "data": null
+}
+```
+
+#### Error Responses
+- 400: Missing email or type / Invalid email format
+- 429: Too many requests (same IP within 60 seconds)
+- 500: Failed to send verification code
+
+---
+
 ### 2. User Registration
 
 **POST** `/auth/register`
 
 #### Description
-Register a new user account
+Register a new user account with both image captcha and email verification code
 
 #### Parameters
 | Name | Type | In | Required | Description |
@@ -49,6 +86,7 @@ Register a new user account
 | name | string | body | Yes | User's full name |
 | captchaId | string | body | Yes | Captcha identifier from /auth/captcha |
 | captchaCode | string | body | Yes | Captcha text from the image |
+| emailCode | string | body | Yes | Email verification code sent to user's email |
 
 #### Request Example
 ```json
@@ -57,7 +95,8 @@ Register a new user account
   "password": "password123",
   "name": "John Doe",
   "captchaId": "captcha_1726492384567_a1b2c3d4e5f",
-  "captchaCode": "ABCD"
+  "captchaCode": "ABCD",
+  "emailCode": "123456"
 }
 ```
 
@@ -78,7 +117,7 @@ Register a new user account
 ```
 
 #### Error Responses
-- 400: Invalid parameters or captcha error
+- 400: Invalid parameters, captcha error, or email verification code error
 - 500: Registration failed
 
 ---
@@ -88,9 +127,12 @@ Register a new user account
 **POST** `/auth/login`
 
 #### Description
-Authenticate user and generate JWT token
+Authenticate user and generate JWT token (supports both password and email verification code login)
 
 #### Parameters
+Either use password login or email verification code login:
+
+**Password Login:**
 | Name | Type | In | Required | Description |
 |------|------|----|----------|-------------|
 | email | string | body | Yes | User's email address |
@@ -98,13 +140,29 @@ Authenticate user and generate JWT token
 | captchaId | string | body | Yes | Captcha identifier from /auth/captcha |
 | captchaCode | string | body | Yes | Captcha text from the image |
 
-#### Request Example
+**Email Verification Code Login:**
+| Name | Type | In | Required | Description |
+|------|------|----|----------|-------------|
+| email | string | body | Yes | User's email address |
+| emailCode | string | body | Yes | Email verification code sent to user's email |
+
+#### Request Examples
+
+**Password Login:**
 ```json
 {
   "email": "user@example.com",
   "password": "password123",
   "captchaId": "captcha_1726492384567_a1b2c3d4e5f",
   "captchaCode": "ABCD"
+}
+```
+
+**Email Verification Code Login:**
+```json
+{
+  "email": "user@example.com",
+  "emailCode": "123456"
 }
 ```
 
@@ -125,8 +183,8 @@ Authenticate user and generate JWT token
 ```
 
 #### Error Responses
-- 400: Invalid parameters or captcha error
-- 401: Invalid email or password
+- 400: Invalid parameters, captcha error, or email verification code error
+- 401: Invalid email, password, or verification code
 - 500: Login failed
 
 ---
