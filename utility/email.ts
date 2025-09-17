@@ -31,7 +31,7 @@ interface EmailResult {
 
 class EmailService {
   private transporter: Transporter;
-  private defaultFrom: string;
+  private readonly defaultFrom: string;
 
   constructor() {
     // 从环境变量获取邮件配置
