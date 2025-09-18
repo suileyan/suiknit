@@ -13,6 +13,10 @@
 - **环境配置**: 通过 .env.config 文件进行环境配置管理
 - **API 版本控制**: 支持多版本 API 管理
 - **路径别名**: 使用路径别名简化模块导入
+- **邮箱验证码**: 支持邮箱验证的用户注册和登录
+- **请求频率限制**: 基于 Redis 的请求频率限制和 IP 黑名单机制
+- **MongoDB 自动备份**: 支持定时自动备份 MongoDB 数据库
+- **Swagger API 文档**: 自动生成并托管 API 文档
 
 ## 技术栈
 
@@ -23,6 +27,8 @@
 - [Mongoose](https://mongoosejs.com/) - MongoDB 对象建模工具
 - [Redis](https://redis.io/) - 内存数据结构存储
 - [JSON Web Token](https://jwt.io/) - 用于安全令牌传输的开放标准
+- [Nodemailer](https://nodemailer.com/) - Node.js 邮件发送模块
+- [svg-captcha](https://github.com/stevenliu216/svg-captcha) - SVG 验证码生成器
 
 ## 项目结构
 
@@ -112,6 +118,7 @@ LOGPATH = ./logs
 
 # jwt 相关配置
 JWENCRPTION = your_secret_key
+JWT_EXPIRES_IN = 30d
 
 # 密码配置
 BCRYPT_SALT_ROUNDS = 12
@@ -123,6 +130,9 @@ DB_NAME = testdb
 DB_USERNAME =
 DB_PASSWORD =
 
+# 是否启用数据库连接
+DB_ENABLED = true
+
 # 验证码配置
 CAPTCHA_SIZE = 4
 CAPTCHA_WIDTH = 120
@@ -133,26 +143,55 @@ CAPTCHA_EXPIRE = 300
 EMAIL_CODE_EXPIRE = 300
 EMAIL_CODE_LIMIT = 60
 
+# 是否启用邮件服务
+EMAIL_ENABLED = true
+
 # 请求频率限制配置
 RATE_LIMIT_MAX_REQUESTS = 100
 RATE_LIMIT_WINDOW_MS = 60000
 RATE_LIMIT_BLACKLIST_DURATION = 3600
+
+# 是否启用请求速率控制
+RATE_LIMIT_ENABLED = true
+
+# IP黑名单存储配置
+BLACKLIST_STORAGE_PATH = ./blacklist
 
 # Redis配置
 REDIS_HOST = localhost
 REDIS_PORT = 6379
 REDIS_PASSWORD =
 
+# 是否启用Redis
+REDIS_ENABLED = true
+
 # 邮件配置
 # Gmail示例配置 (需要开启"安全性较低的应用访问权限"或使用应用专用密码)
-EMAIL_HOST = smtp.gmail.com
-EMAIL_PORT = 587
-EMAIL_SECURE = false
-EMAIL_USER = your_email@gmail.com
-EMAIL_PASS = your_email_password
-EMAIL_FROM = your_email@gmail.com
+# EMAIL_HOST = smtp.gmail.com
+# EMAIL_PORT = 587
+# EMAIL_SECURE = false
+# EMAIL_USER = your_email@gmail.com
+# EMAIL_PASS = your_email_password
+# EMAIL_FROM = your_email@gmail.com
+
+# QQ邮箱示例配置
+ EMAIL_HOST = smtp.qq.com
+ EMAIL_PORT = 465
+ EMAIL_SECURE = true
+ EMAIL_USER = 3220145931@qq.com
+ EMAIL_PASS = zypwefcvxckodfbg
+ EMAIL_FROM = 3220145931@qq.com
+
+# 163邮箱示例配置
+# EMAIL_HOST = smtp.163.com
+# EMAIL_PORT = 465
+# EMAIL_SECURE = true
+# EMAIL_USER = your_email@163.com
+# EMAIL_PASS = your_163_auth_code
+# EMAIL_FROM = your_email@163.com
 
 # MongoDB 备份配置
+MONGO_BACKUP_ENABLED = false  # 是否启用 MongoDB 备份功能
 MONGO_BACKUP_PATH = ./backups
 MONGO_BACKUP_SCHEDULE = 0 2 * * *  # 每天凌晨2点执行备份
 MONGO_BACKUP_RETENTION_DAYS = 7  # 保留7天的备份
@@ -263,6 +302,21 @@ npm run lint:fix
 - 实现操作重试机制和失败处理
 - 有效缓解数据库压力
 
+## Redis 缓存和队列系统
+
+项目现在使用 Redis 实现了两个重要功能来减轻数据库压力：
+
+### Redis 缓存
+- 自动缓存所有查询操作的结果
+- 提供缓存数据的获取、存储和删除功能
+- 减少对数据库的直接查询，提高响应速度
+
+### Redis 队列
+- 所有数据库写操作（插入、更新、删除）都先加入 Redis 队列
+- 异步处理数据库操作，提高系统响应性
+- 实现操作重试机制和失败处理
+- 有效缓解数据库压力
+
 ## 认证系统
 
 使用 JWT 进行用户认证：
@@ -293,6 +347,20 @@ npm run lint:fix
 
 - 使用 bcryptjs 对密码进行哈希处理
 - 支持通过环境变量配置 bcrypt salt rounds（BCRYPT_SALT_ROUNDS）
+
+## 请求频率限制和IP黑名单
+
+项目包含基于Redis的请求频率限制和IP黑名单功能：
+
+- 限制每个IP在指定时间窗口内的请求次数
+- 超过限制的IP将被自动拉黑
+- 黑名单IP将被拒绝访问所有接口
+
+### 配置项
+
+- `RATE_LIMIT_MAX_REQUESTS`: 每个时间窗口内允许的最大请求数 (默认: 100)
+- `RATE_LIMIT_WINDOW_MS`: 时间窗口大小，单位毫秒 (默认: 60000，即1分钟)
+- `RATE_LIMIT_BLACKLIST_DURATION`: IP黑名单持续时间，单位秒 (默认: 3600，即1小时)
 
 ## 日志系统
 
@@ -363,6 +431,8 @@ import { performMongoRestore } from './utility/mongoRestore.js';
 // 从指定备份文件恢复数据库
 await performMongoRestore('mongodb-testdb-2025-09-17T02-03-49-601Z');
 ```
+
+## 邮件服务
 
 项目包含一个功能完整的邮件发送工具类 (`emailService`)，提供以下功能：
 
@@ -548,62 +618,3 @@ server.ts
 └── utility/logger.ts
 ```
 
-## API 测试
-
-本项目使用 PactumJS 进行 API 集成测试，并提供了基于 Swagger/OpenAPI 规范的自动化测试生成功能。
-
-### 测试框架
-
-- **PactumJS**: 轻量级的 API 测试框架，支持 BDD 和契约测试
-- **自动化生成**: 基于 Swagger/OpenAPI 规范自动生成测试文件
-- **测试目录**: `IntegrationTest/` 目录包含所有测试文件
-
-### 测试结构
-
-```
-IntegrationTest/
-├── generateTests.cjs      # 测试文件生成器
-├── health.test.cjs        # 基本健康检查测试
-├── all.test.cjs           # 主测试运行文件
-├── _v1.test.cjs           # v1 版本根路径测试
-├── _v1_auth_captcha.test.cjs     # 验证码接口测试
-├── _v1_auth_sendEmailCode.test.cjs  # 发送邮箱验证码接口测试
-├── _v1_auth_register.test.cjs     # 用户注册接口测试
-├── _v1_auth_login.test.cjs        # 用户登录接口测试
-├── _v1_auth_loginByToken.test.cjs # Token 验证接口测试
-├── _v1_auth_logout.test.cjs       # 用户注销接口测试
-├── _v1_auth_updateUserInfo.test.cjs # 更新用户信息接口测试
-└── _v1_file_public.test.cjs       # 公共资源接口测试
-```
-
-### 运行测试
-
-```bash
-# 运行所有 API 测试
-npm test
-
-# 重新生成测试文件
-npm run test:generate
-```
-
-### 测试生成器
-
-测试生成器 (`generateTests.cjs`) 能够：
-
-1. 基于预定义的 API 路径和方法生成测试文件
-2. 为每个接口添加适当的测试数据
-3. 生成独立的测试文件和主测试运行文件
-4. 支持不同的 HTTP 方法和请求参数
-
-### 开发自定义测试
-
-1. 手动创建测试文件: 在 `IntegrationTest/` 目录中创建新的 `.test.cjs` 文件
-2. 使用 PactumJS 语法编写测试用例
-3. 运行测试: `npm test`
-
-### 测试最佳实践
-
-1. **独立性**: 每个测试都应该独立运行，不依赖其他测试的结果
-2. **数据清理**: 测试完成后清理测试数据
-3. **环境隔离**: 使用测试环境配置，避免影响生产数据
-4. **断言明确**: 使用明确的断言来验证预期结果
