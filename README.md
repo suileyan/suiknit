@@ -36,9 +36,13 @@
 suiknit/
 ├── server.ts              # 应用入口文件
 ├── config/                # 配置文件目录
+│   ├── cors/              # CORS 配置文件目录
+│   │   ├── allowed_origins.txt    # 允许的域名列表
+│   │   └── blocked_origins.txt    # 阻止的域名列表
 │   ├── dbConfig.ts        # 数据库配置
 │   ├── logConfig.ts       # 日志配置
 │   ├── redisConfig.ts     # Redis 配置
+│   ├── corsConfig.ts      # CORS 配置
 │   └── swaggerConfig.ts   # Swagger 配置
 ├── controllers/           # 控制器目录
 │   ├── v1/                # v1 版本控制器
@@ -483,6 +487,11 @@ await emailService.sendHtml('user@example.com', 'HTML邮件', '<h1>HTML内容</h
     - 不直接修改线上稳定版本，避免因为一个小改动导致整个服务不可用
     - 复制一份最新的稳定 API，命名为 `xxx_dev` 或者带版本号（如 v2），在新的副本上进行开发和测试
     - 确认稳定后，再用新版本替换旧的，或者升级路由指向新版本
+13. **CORS 配置规范**：
+    - 在 `config/cors/` 目录中管理域名白名单和黑名单
+    - 通过 `allowed_origins.txt` 文件添加允许的域名
+    - 通过 `blocked_origins.txt` 文件添加阻止的域名
+    - 系统会自动加载这些配置并应用到 CORS 中间件
 
 ## 代码质量检查
 

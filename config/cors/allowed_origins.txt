@@ -1,0 +1,8 @@
+# Allowed origins for CORS
+# Add one origin per line
+# Example:
+# http://localhost:3000
+# https://example.com
+http://localhost:3000
+http://localhost:3001
+http://127.0.0.1:3000

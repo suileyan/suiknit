@@ -1,0 +1,4 @@
+# Blocked origins for CORS
+# Add one origin per line
+# Example:
+# https://blocked-site.com
