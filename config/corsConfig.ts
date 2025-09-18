@@ -27,7 +27,7 @@ function readOriginsFromFile(filename: string): string[] {
       .map(line => line.trim())
       .filter(line => line && !line.startsWith('#'));
   } catch (error) {
-    console.error(`Error reading ${filename}:`, error);
+    console.error(`Error reading ${filename}:${error}`);
     return [];
   }
 }
@@ -40,7 +40,7 @@ const corsConfig: CORSConfig = {
   allowedOrigins: allowedOrigins,
   blockedOrigins: blockedOrigins,
   allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'X-Access-Token'],
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'X-Access-Token', 'Token'],
   exposedHeaders: ['X-Access-Token'],
   credentials: true,
   maxAge: 86400 // 24 hours

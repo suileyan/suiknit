@@ -1,15 +1,44 @@
 import { Request, Response, NextFunction } from 'express';
 import { redisClient } from '../config/redisConfig.js';
+import rateLimitConfig from '../config/rateLimitConfig.js';
 import dotenv from 'dotenv';
 
 dotenv.config({ path: '.env.config' });
 
 // 从环境变量获取请求频率限制配置
-const rateLimitConfig = {
+const rateLimitEnvConfig = {
   maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10),
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
-  blacklistDuration: parseInt(process.env.RATE_LIMIT_BLACKLIST_DURATION || '3600', 10)
+  blacklistDuration: parseInt(process.env.RATE_LIMIT_BLACKLIST_DURATION || '3600', 10),
+  enabled: process.env.RATE_LIMIT_ENABLED === 'true'
 };
+
+// 合并环境变量配置和文件配置
+const config = {
+  maxRequests: rateLimitEnvConfig.maxRequests,
+  windowMs: rateLimitEnvConfig.windowMs,
+  blacklistDuration: rateLimitEnvConfig.blacklistDuration,
+  enabled: rateLimitEnvConfig.enabled,
+  excludedPaths: rateLimitConfig.excludedPaths,
+  excludedMethods: rateLimitConfig.excludedMethods
+};
+
+// 检查路径是否应该被排除
+function isPathExcluded(path: string): boolean {
+  return config.excludedPaths.some(excludedPath => {
+    // 支持通配符匹配
+    if (excludedPath.endsWith('*')) {
+      const prefix = excludedPath.slice(0, -1);
+      return path.startsWith(prefix);
+    }
+    return path === excludedPath;
+  });
+}
+
+// 检查方法是否应该被排除
+function isMethodExcluded(method: string): boolean {
+  return config.excludedMethods.includes(method.toUpperCase());
+}
 
 // 将IP添加到黑名单
 export async function addToBlacklist(ip: string): Promise<void> {
@@ -21,7 +50,7 @@ export async function addToBlacklist(ip: string): Promise<void> {
     
     // 添加到Redis黑名单
     const blacklistKey = `blacklist:${ip}`;
-    await redisClient.setEx(blacklistKey, rateLimitConfig.blacklistDuration, '1');
+    await redisClient.setEx(blacklistKey, config.blacklistDuration, '1');
   } catch (error) {
     console.error('添加IP到黑名单失败:', error);
   }
@@ -60,6 +89,18 @@ export function getClientIp(req: Request): string {
 // 请求频率限制和IP黑名单中间件
 export async function rateLimitAndBlacklistMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    // 如果频率限制未启用，直接通过
+    if (!config.enabled) {
+      next();
+      return;
+    }
+    
+    // 检查路径和方法是否被排除
+    if (isPathExcluded(req.path) || isMethodExcluded(req.method)) {
+      next();
+      return;
+    }
+    
     if (!redisClient) {
       console.error('Redis客户端未初始化');
       next();
@@ -82,7 +123,7 @@ export async function rateLimitAndBlacklistMiddleware(req: Request, res: Respons
     // 使用Redis记录请求次数
     const rateLimitKey = `rate_limit:${ip}`;
     const currentTime = Date.now();
-    const windowStart = currentTime - rateLimitConfig.windowMs;
+    const windowStart = currentTime - config.windowMs;
     
     // 清除窗口外的请求记录
     await redisClient.zRemRangeByScore(rateLimitKey, 0, windowStart);
@@ -97,13 +138,13 @@ export async function rateLimitAndBlacklistMiddleware(req: Request, res: Respons
     });
     
     // 设置键的过期时间
-    await redisClient.expire(rateLimitKey, Math.ceil(rateLimitConfig.windowMs / 1000) + 10);
+    await redisClient.expire(rateLimitKey, Math.ceil(config.windowMs / 1000) + 10);
     
     // 获取当前窗口内的请求数量
     const requestCount = await redisClient.zCard(rateLimitKey);
     
     // 检查是否超过限制
-    if (requestCount > rateLimitConfig.maxRequests) {
+    if (requestCount > config.maxRequests) {
       // 将IP添加到黑名单
       await addToBlacklist(ip);
       

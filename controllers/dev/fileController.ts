@@ -15,8 +15,8 @@ dotenv.config({ path: '.env.config' });
 /**
  * @openapi
  * tags:
- *   name: File V2
- *   description: File management (v2 API)
+ *   name: File Dev
+ *   description: File management (dev API)
  */
 
 // 文件类型映射表
@@ -234,6 +234,68 @@ function verifyToken(req: Request): { id: string; email: string; name: string } 
 }
 
 // 获取公共资源 (v2版本)
+/**
+ * @openapi
+ * /dev/file/public:
+ *   get:
+ *     summary: Get Public File
+ *     description: Retrieve public file information by file ID
+ *     tags: [File Dev]
+ *     parameters:
+ *       - name: fileId
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *           example: "file_1726492384567_a1b2c3d4e5f"
+ *     responses:
+ *       200:
+ *         description: Public file retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: "Success"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       example: "file_1726492384567_a1b2c3d4e5f"
+ *                     name:
+ *                       type: string
+ *                       example: "example.txt"
+ *                     path:
+ *                       type: string
+ *                       example: "uploads/example.txt"
+ *                     size:
+ *                       type: integer
+ *                       example: 1024
+ *                     type:
+ *                       type: string
+ *                       example: "text/plain"
+ *                     extension:
+ *                       type: string
+ *                       example: ".txt"
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2025-09-18T10:00:00.000Z"
+ *       400:
+ *         description: Missing file ID parameter
+ *       404:
+ *         description: File not found
+ *       403:
+ *         description: File not accessible
+ *       500:
+ *         description: Server internal error
+ */
 export const getPublicFile = async (req: Request, res: Response): Promise<void> => {
   try {
     const { fileId } = req.query;
@@ -293,6 +355,73 @@ export const getPublicFile = async (req: Request, res: Response): Promise<void> 
 };
 
 // 单文件上传
+/**
+ * @openapi
+ * /dev/file/upload/single:
+ *   post:
+ *     summary: Upload Single File
+ *     description: Upload a single file with metadata
+ *     tags: [File Dev]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *               description:
+ *                 type: string
+ *                 example: "File description"
+ *               isPublic:
+ *                 type: boolean
+ *                 example: true
+ *     responses:
+ *       201:
+ *         description: File uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 201
+ *                 message:
+ *                   type: string
+ *                   example: "文件上传成功"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       example: "file_1726492384567_a1b2c3d4e5f"
+ *                     name:
+ *                       type: string
+ *                       example: "example.txt"
+ *                     path:
+ *                       type: string
+ *                       example: "uploads/example.txt"
+ *                     checksum:
+ *                       type: string
+ *                       example: "a1b2c3d4e5f67890"
+ *                     size:
+ *                       type: integer
+ *                       example: 1024
+ *                     type:
+ *                       type: string
+ *                       example: "text/plain"
+ *       400:
+ *         description: No file uploaded or invalid parameters
+ *       401:
+ *         description: Unauthorized access
+ *       500:
+ *         description: File upload failed
+ */
 export const uploadSingleFile = async (req: Request, res: Response): Promise<void> => {
   try {
     // 验证token
@@ -349,12 +478,13 @@ export const uploadSingleFile = async (req: Request, res: Response): Promise<voi
     
     // 计算文件哈希
     const fileHash = await calculateFileHash(filePath);
+    console.log(`[DEBUG] Calculated file hash for ${req.file.originalname}: ${fileHash}`);
     
     // 获取文件类型
     const fileType = getFileType(fileExtension);
     
     // 创建文件记录
-    const fileRecord = new File({
+    const fileRecordData = {
       name: req.file.originalname,
       path: path.relative(process.cwd(), filePath),
       size: req.file.size,
@@ -365,9 +495,14 @@ export const uploadSingleFile = async (req: Request, res: Response): Promise<voi
       createdBy: user.id,
       status: 'active',
       description: req.body.description || ''
-    });
+    };
     
+    console.log('[DEBUG] Creating file record with data:', fileRecordData);
+    
+    const fileRecord = new File(fileRecordData);
     const savedFile = await fileRecord.save();
+    
+    console.log('[DEBUG] Saved file record:', savedFile);
     
     // 创建文件权限记录（默认所有者权限）
     const filePermission = new FilePermission({
@@ -408,6 +543,77 @@ export const uploadSingleFile = async (req: Request, res: Response): Promise<voi
 };
 
 // 多文件上传
+/**
+ * @openapi
+ * /dev/file/upload/multiple:
+ *   post:
+ *     summary: Upload Multiple Files
+ *     description: Upload multiple files with metadata
+ *     tags: [File Dev]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               files:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *               description:
+ *                 type: string
+ *                 example: "Files description"
+ *               isPublic:
+ *                 type: boolean
+ *                 example: true
+ *     responses:
+ *       201:
+ *         description: Files uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 201
+ *                 message:
+ *                   type: string
+ *                   example: "成功上传 2 个文件"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         example: "file_1726492384567_a1b2c3d4e5f"
+ *                       name:
+ *                         type: string
+ *                         example: "example1.txt"
+ *                       path:
+ *                         type: string
+ *                         example: "uploads/example1.txt"
+ *                       checksum:
+ *                         type: string
+ *                         example: "a1b2c3d4e5f67890"
+ *                       size:
+ *                         type: integer
+ *                         example: 1024
+ *                       type:
+ *                         type: string
+ *                         example: "text/plain"
+ *       400:
+ *         description: No files uploaded or invalid parameters
+ *       401:
+ *         description: Unauthorized access
+ *       500:
+ *         description: Files upload failed
+ */
 export const uploadMultipleFiles = async (req: Request, res: Response): Promise<void> => {
   try {
     // 验证token
@@ -515,6 +721,65 @@ export const uploadMultipleFiles = async (req: Request, res: Response): Promise<
 };
 
 // 分片上传初始化
+/**
+ * @openapi
+ * /dev/file/upload/chunk/init:
+ *   post:
+ *     summary: Initialize Chunked Upload
+ *     description: Initialize a chunked file upload session
+ *     tags: [File Dev]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               fileName:
+ *                 type: string
+ *                 example: "largefile.zip"
+ *               fileSize:
+ *                 type: integer
+ *                 example: 104857600
+ *               chunkCount:
+ *                 type: integer
+ *                 example: 50
+ *             required:
+ *               - fileName
+ *               - fileSize
+ *               - chunkCount
+ *     responses:
+ *       200:
+ *         description: Chunked upload initialization successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: "分片上传初始化成功"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     uploadId:
+ *                       type: string
+ *                       example: "upload_1726492384567_a1b2c3d4e5f"
+ *                     chunkUploadDir:
+ *                       type: string
+ *                       example: "./chunks/upload_1726492384567_a1b2c3d4e5f"
+ *       400:
+ *         description: Missing required parameters
+ *       401:
+ *         description: Unauthorized access
+ *       500:
+ *         description: Initialization failed
+ */
 export const initChunkUpload = async (req: Request, res: Response): Promise<void> => {
   try {
     // 验证token
@@ -527,7 +792,7 @@ export const initChunkUpload = async (req: Request, res: Response): Promise<void
       });
       return;
     }
-    
+    console.log('初始化分片上传',uploadConfig.enableChunkedUpload);
     if (!uploadConfig.enableChunkedUpload) {
       res.status(400).json({
         code: 400,
@@ -574,6 +839,62 @@ export const initChunkUpload = async (req: Request, res: Response): Promise<void
 };
 
 // 上传分片
+/**
+ * @openapi
+ * /dev/file/upload/chunk:
+ *   post:
+ *     summary: Upload File Chunk
+ *     description: Upload a single file chunk
+ *     tags: [File Dev]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               chunk:
+ *                 type: string
+ *                 format: binary
+ *               uploadId:
+ *                 type: string
+ *                 example: "upload_1726492384567_a1b2c3d4e5f"
+ *               chunkIndex:
+ *                 type: integer
+ *                 example: 0
+ *             required:
+ *               - chunk
+ *               - uploadId
+ *               - chunkIndex
+ *     responses:
+ *       200:
+ *         description: Chunk uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: "分片上传成功"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     chunkIndex:
+ *                       type: integer
+ *                       example: 0
+ *       400:
+ *         description: Missing required parameters or no file uploaded
+ *       401:
+ *         description: Unauthorized access
+ *       500:
+ *         description: Chunk upload failed
+ */
 export const uploadChunk = async (req: Request, res: Response): Promise<void> => {
   try {
     // 验证token
@@ -643,6 +964,84 @@ export const uploadChunk = async (req: Request, res: Response): Promise<void> =>
 };
 
 // 合并分片
+/**
+ * @openapi
+ * /dev/file/upload/chunk/merge:
+ *   post:
+ *     summary: Merge File Chunks
+ *     description: Merge all uploaded file chunks into a complete file
+ *     tags: [File Dev]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               uploadId:
+ *                 type: string
+ *                 example: "upload_1726492384567_a1b2c3d4e5f"
+ *               fileName:
+ *                 type: string
+ *                 example: "largefile.zip"
+ *               fileSize:
+ *                 type: integer
+ *                 example: 104857600
+ *               chunkCount:
+ *                 type: integer
+ *                 example: 50
+ *               description:
+ *                 type: string
+ *                 example: "Large file description"
+ *               isPublic:
+ *                 type: boolean
+ *                 example: true
+ *             required:
+ *               - uploadId
+ *               - fileName
+ *               - fileSize
+ *               - chunkCount
+ *     responses:
+ *       200:
+ *         description: Chunks merged successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: "分片合并成功"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       example: "file_1726492384567_a1b2c3d4e5f"
+ *                     name:
+ *                       type: string
+ *                       example: "largefile.zip"
+ *                     path:
+ *                       type: string
+ *                       example: "uploads/largefile.zip"
+ *                     size:
+ *                       type: integer
+ *                       example: 104857600
+ *                     type:
+ *                       type: string
+ *                       example: "application/zip"
+ *       400:
+ *         description: Missing required parameters
+ *       401:
+ *         description: Unauthorized access
+ *       500:
+ *         description: Chunks merge failed
+ */
 export const mergeChunks = async (req: Request, res: Response): Promise<void> => {
   try {
     // 验证token
@@ -712,13 +1111,14 @@ export const mergeChunks = async (req: Request, res: Response): Promise<void> =>
     
     // 计算最终文件哈希
     const fileHash = await calculateFileHash(finalFilePath);
+    console.log(`[DEBUG] Calculated final file hash for ${fileName}: ${fileHash}`);
     
     // 获取文件扩展名和类型
     const finalFileExtension = path.extname(fileName);
     const fileType = getFileType(finalFileExtension);
     
     // 创建文件记录
-    const fileRecord = new File({
+    const fileRecordData = {
       name: fileName,
       path: path.relative(process.cwd(), finalFilePath),
       size: fileSize,
@@ -729,9 +1129,14 @@ export const mergeChunks = async (req: Request, res: Response): Promise<void> =>
       createdBy: user.id,
       status: 'active',
       description: req.body.description || ''
-    });
+    };
     
+    console.log('[DEBUG] Creating merged file record with data:', fileRecordData);
+    
+    const fileRecord = new File(fileRecordData);
     const savedFile = await fileRecord.save();
+    
+    console.log('[DEBUG] Saved merged file record:', savedFile);
     
     // 创建文件权限记录（默认所有者权限）
     const filePermission = new FilePermission({

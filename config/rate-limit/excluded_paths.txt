@@ -1,0 +1,30 @@
+# Excluded paths for rate limiting
+# Add one path per line
+# Paths will not be counted towards rate limiting
+# Use * as wildcard for pattern matching
+
+# Health check endpoints
+/health
+/status
+/ping
+/metrics
+
+# Static file serving
+/favicon.ico
+/robots.txt
+
+# Public API endpoints
+/api-docs*
+/public*
+/file/public*
+
+# Captcha endpoints (should be excluded to prevent blocking)
+/auth/captcha
+/auth/sendEmailCode
+
+# File upload endpoints (may need exclusion for large file uploads)
+/upload/chunk
+/file/upload/chunk
+/file/upload/chunk/init
+/file/upload/chunk/merge
+/dev/file/upload/chunk

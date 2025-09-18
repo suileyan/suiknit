@@ -19,7 +19,8 @@ export const logConfig: LogConfig = {
     // 完全不记录日志的路径
     excludePaths: [
         '/favicon.ico',
-        '/robots.txt'
+        '/robots.txt',
+        '/upload/chunk'
     ],
 
     // 敏感字段，不记录在日志中

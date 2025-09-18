@@ -19,6 +19,7 @@
     "@types/node": "^24.5.0",
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^7.0.1",
+    "@types/redis": "^4.0.10",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",
     "@typescript-eslint/eslint-plugin": "^8.44.0",

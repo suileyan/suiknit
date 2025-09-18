@@ -1,10 +1,19 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+// 获取当前文件目录
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // 加载环境变量
 dotenv.config({ path: '.env.config' });
 
 const port = process.env.PORT || '3000';
+
+console.log(__dirname);
 
 const options: swaggerJsdoc.Options = {
   definition: {
@@ -35,7 +44,10 @@ const options: swaggerJsdoc.Options = {
       }
     ]
   },
-  apis: ['./routes/v1/*.ts', './controllers/v1/*.ts', './routes/v2/*.ts', './controllers/v2/*.ts'] // 指定要扫描的文件路径
+  apis: [
+    path.join(__dirname, '../controllers/**/*.js'),
+    path.join(__dirname, '../routes/**/*.js')
+  ]
 };
 
 const specs = swaggerJsdoc(options);

@@ -89,6 +89,18 @@ suiknit/
 │   ├── email.ts           # 邮件发送工具类
 │   ├── redisCache.ts      # Redis 缓存工具类
 │   └── redisQueue.ts      # Redis 队列处理工具类
+├── resource/              # 资源目录
+│   ├── logs/              # 日志文件
+│   ├── backups/           # MongoDB 备份文件
+│   ├── blacklist/         # IP 黑名单存储
+│   ├── uploads/           # 上传文件
+│   ├── chunks/            # 文件上传分片
+│   └── swagger/           # Swagger API 文档
+├── test/                  # 文件上传测试示例
+│   ├── fileUpload.html    # 文件上传测试页面
+│   ├── server.js          # 测试服务器
+│   ├── package.json       # 测试项目依赖
+│   └── README.md          # 测试说明文档
 ├── .env.config            # 环境配置文件
 ├── package.json           # 项目依赖和脚本
 └── tsconfig.json          # TypeScript 配置
@@ -534,6 +546,28 @@ npm run lint:fix
 - 访问v1版本API：`http://localhost:3000/v1/auth/login`
 - 访问v2版本API：`http://localhost:3000/v2/auth/login`
 - 查看API文档：`http://localhost:3000/api-docs`
+
+## API 端点说明
+
+### 开发版本 API (dev)
+
+#### 文件下载 API
+
+项目实现了安全的文件下载机制，通过两个步骤完成：
+
+1. **生成下载令牌**：用户首先请求生成一个临时的下载令牌
+   - 端点：`POST /dev/file/download/token`
+   - 需要提供文件ID和有效的JWT认证
+   - 系统会验证用户权限并生成一次性下载令牌
+   - 同一用户对同一文件的请求有20秒频率限制
+
+2. **下载文件**：使用下载令牌来实际下载文件
+   - 端点：`GET /dev/file/download/{fileId}?key={token}`
+   - 需要提供有效的下载令牌作为查询参数
+   - 系统验证令牌有效性、权限和文件匹配性
+   - 下载令牌只能使用一次，使用后立即失效
+
+这种机制确保了文件下载的安全性，防止未授权访问，并且令牌只能使用一次。
 
 ### 开发流程规范
 

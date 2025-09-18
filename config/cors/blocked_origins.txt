@@ -2,3 +2,4 @@
 # Add one origin per line
 # Example:
 # https://blocked-site.com
+# https://malicious-site.com
