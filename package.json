@@ -1,9 +1,9 @@
 {
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npx tsc-alias --project tsconfig.json",
     "start": "node dist/server.js",
-    "dev": "concurrently \"tsc --watch\" \"nodemon --watch dist dist/server.js\"",
+    "dev": "concurrently \"tsc --watch\" \"tsc-alias --project tsconfig.json --watch\" \"nodemon --watch dist dist/server.js\"",
     "restore": "node dist/utility/mongoRestore.js",
     "type-check": "tsc --noEmit --pretty",
     "type-check:watch": "tsc --noEmit --pretty --watch",
@@ -17,6 +17,8 @@
     "@types/node": "^24.5.0",
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^7.0.1",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.8",
     "@typescript-eslint/eslint-plugin": "^8.44.0",
     "@typescript-eslint/parser": "^8.44.0",
     "concurrently": "^9.2.1",
@@ -26,6 +28,8 @@
     "nodemon": "^3.1.10",
     "prettier": "^3.6.2",
     "ts-node": "^10.9.2",
+    "tsc-alias": "^1.8.16",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.44.0"
   },
@@ -39,6 +43,8 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.6",
     "redis": "^5.8.2",
-    "svg-captcha": "^1.4.0"
+    "svg-captcha": "^1.4.0",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
   }
 }

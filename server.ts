@@ -1,17 +1,18 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import DB from './utility/mongoDB.js';
-import indexRoutes from './routes/index.js';
-import fileRoutes from './routes/fileRouter.js';
-import authRoutes from './routes/auth.js';
-import dbConfig from './config/dbConfig.js';
-import { connectRedis } from './config/redisConfig.js';
-import { startQueueProcessing } from './utility/redisQueue.js';
-import { startMongoBackupSchedule } from './utility/mongoBackup.js';
-import { cors, requestLogger, validateRequest } from './middleware/common.js';
-import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
-import { rateLimitAndBlacklistMiddleware } from './middleware/blacklist.js';
-import { unifiedResponseMiddleware, loggingMiddleware } from './middleware/responseFormatter.js';
+import DB from '@/utility/mongoDB.js';
+import routes from '@/routes/index.js';
+import dbConfig from '@/config/dbConfig.js';
+import { connectRedis } from '@/config/redisConfig.js';
+import { startQueueProcessing } from '@/utility/redisQueue.js';
+import { startMongoBackupSchedule } from '@/utility/mongoBackup.js';
+import { cors, requestLogger, validateRequest } from '@/middleware/common.js';
+import { errorHandler, notFoundHandler } from '@/middleware/errorHandler.js';
+import { rateLimitAndBlacklistMiddleware } from '@/middleware/blacklist.js';
+import { unifiedResponseMiddleware, loggingMiddleware } from '@/middleware/responseFormatter.js';
+// Swagger imports
+import swaggerUi from 'swagger-ui-express';
+import specs from '@/config/swaggerConfig.js';
 
 dotenv.config({ path: '.env.config' });
 const app = express();
@@ -44,10 +45,11 @@ app.use(loggingMiddleware);
 // 应用请求频率限制和IP黑名单中间件
 app.use(rateLimitAndBlacklistMiddleware);
 
-// 使用外部路由
-app.use('/auth', authRoutes);
-app.use('/file', fileRoutes);
-app.use('/', indexRoutes);
+// Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+
+// 使用版本化路由
+app.use('/', routes);
 
 // 404 处理
 app.use(notFoundHandler);
@@ -57,6 +59,7 @@ app.use(errorHandler);
 
 app.listen(+port, LANMode ? server : '', () => {
     console.log(`服务器运行在端口 ${port}`);
+    console.log(`Swagger UI available at http://localhost:${port}/api-docs`);
     // 启动Redis队列处理
     startQueueProcessing().catch(err => {
         console.error('启动Redis队列处理失败:', err);

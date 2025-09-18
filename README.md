@@ -11,6 +11,8 @@
 - **Redis 缓存和队列**: 使用 Redis 进行数据缓存和数据库操作队列处理
 - **自定义日志系统**: 带有敏感数据过滤功能的日志记录
 - **环境配置**: 通过 .env.config 文件进行环境配置管理
+- **API 版本控制**: 支持多版本 API 管理
+- **路径别名**: 使用路径别名简化模块导入
 
 ## 技术栈
 
@@ -30,17 +32,31 @@ suiknit/
 ├── config/                # 配置文件目录
 │   ├── dbConfig.ts        # 数据库配置
 │   ├── logConfig.ts       # 日志配置
-│   └── redisConfig.ts     # Redis 配置
+│   ├── redisConfig.ts     # Redis 配置
+│   └── swaggerConfig.ts   # Swagger 配置
 ├── controllers/           # 控制器目录
-│   ├── authController.ts  # 认证相关控制器
-│   ├── fileController.ts  # 文件相关控制器
-│   └── indexController.ts # 主要控制器
+│   ├── v1/                # v1 版本控制器
+│   │   ├── authController.ts  # 认证相关控制器
+│   │   ├── fileController.ts  # 文件相关控制器
+│   │   └── indexController.ts # 主要控制器
+│   └── v2/                # v2 版本控制器
+│       ├── authController.ts  # 认证相关控制器
+│       ├── fileController.ts  # 文件相关控制器
+│       └── indexController.ts # 主要控制器
 ├── models/                # 数据库模型目录
 │   └── User.ts            # 用户模型
 ├── routes/                # 路由目录
-│   ├── auth.ts            # 认证相关路由
-│   ├── fileRouter.ts      # 文件相关路由
-│   └── index.ts           # 主要路由
+│   ├── v1/                # v1 版本路由
+│   │   ├── auth.ts        # 认证相关路由
+│   │   ├── fileRouter.ts  # 文件相关路由
+│   │   ├── index.ts       # 主要路由
+│   │   └── main.ts        # v1 路由聚合
+│   ├── v2/                # v2 版本路由
+│   │   ├── auth.ts        # 认证相关路由
+│   │   ├── fileRouter.ts  # 文件相关路由
+│   │   ├── index.ts       # v2 路由聚合
+│   │   ├── main.ts        # 主要路由
+│   └── index.ts           # 路由入口文件
 ├── services/              # 业务逻辑服务目录
 │   └── authService.ts     # 认证相关业务逻辑
 ├── middleware/            # 中间件目录
@@ -175,24 +191,48 @@ npm run lint:fix
 
 ## API 接口
 
-### 认证接口
+### v1 版本接口
 
-- `GET /auth/captcha` - 获取图像验证码
-- `POST /auth/sendEmailCode` - 发送邮箱验证码
-- `POST /auth/register` - 用户注册
-- `POST /auth/login` - 用户登录
-- `GET /auth/loginByToken` - 使用 Token 验证身份
-- `POST /auth/logout` - 用户注销
-- `PUT /auth/update` - 更新用户信息
+#### 认证接口
 
-### 主要接口
+- `GET /v1/auth/captcha` - 获取图像验证码
+- `POST /v1/auth/sendEmailCode` - 发送邮箱验证码
+- `POST /v1/auth/register` - 用户注册
+- `POST /v1/auth/login` - 用户登录
+- `GET /v1/auth/loginByToken` - 使用 Token 验证身份
+- `GET /v1/auth/logout` - 用户注销
+- `PUT /v1/auth/updateUserInfo` - 更新用户信息
 
-- `GET /` - 返回当前日期
-- `POST /` - 返回请求详细信息
+#### 主要接口
 
-### 文件接口
+- `GET /v1/` - 返回当前日期
+- `POST /v1/` - 返回请求详细信息
 
-- `GET /file/public` - 公共资源访问
+#### 文件接口
+
+- `GET /v1/file/public` - 公共资源访问
+
+### v2 版本接口
+
+#### 认证接口
+
+- `GET /v2/auth/captcha` - 获取图像验证码 (v2)
+- `POST /v2/auth/register` - 用户注册 (v2)
+- `POST /v2/auth/login` - 用户登录 (v2)
+
+#### 主要接口
+
+- `GET /v2/` - 返回当前日期 (v2)
+- `POST /v2/` - 返回请求详细信息 (v2)
+
+#### 文件接口
+
+- `GET /v2/file/public` - 公共资源访问 (v2)
+
+### 默认版本接口
+
+- `GET /api/` - 返回当前日期 (指向 v1 版本)
+- `POST /api/` - 返回请求详细信息 (指向 v1 版本)
 
 ## 数据库操作
 
@@ -367,6 +407,12 @@ await emailService.sendHtml('user@example.com', 'HTML邮件', '<h1>HTML内容</h
 7. MongoDB 数据库会根据配置自动进行定时备份，确保数据安全（可通过 MONGO_BACKUP_ENABLED 配置项启用或禁用）
 8. 服务启动时会自动执行一次 MongoDB 备份（如果启用了备份功能）
 9. 使用 ESLint 进行代码质量检查，确保代码风格一致性
+10. 遵循 API 版本控制规范，新功能应在新版本中实现
+11. 使用路径别名简化模块导入，提高代码可读性
+12. **版本开发规范**：
+    - 不直接修改线上稳定版本，避免因为一个小改动导致整个服务不可用
+    - 复制一份最新的稳定 API，命名为 `xxx_dev` 或者带版本号（如 v2），在新的副本上进行开发和测试
+    - 确认稳定后，再用新版本替换旧的，或者升级路由指向新版本
 
 ## 代码质量检查
 
@@ -381,36 +427,81 @@ npm run lint
 npm run lint:fix
 ```
 
-## 配置热重载
+## API 版本控制
 
-本项目支持配置文件的热重载功能，当 `.env.config` 文件被修改时，系统会自动重新加载配置，无需重启服务器。
+本项目实现了基于URL路径的API版本控制机制，允许在不影响现有客户端的情况下开发和部署新功能。
 
-### 支持热重载的配置项
+### 版本控制策略
 
-- **服务器配置**：PORT、SERVER、LAN
-- **日志配置**：ISLOG、LOGPATH
-- **数据库配置**：DB_HOST、DB_PORT、DB_NAME、DB_USERNAME、DB_PASSWORD
-- **Redis配置**：REDIS_HOST、REDIS_PORT、REDIS_PASSWORD
-- **邮件配置**：EMAIL_HOST、EMAIL_PORT、EMAIL_SECURE、EMAIL_USER、EMAIL_PASS、EMAIL_FROM
-- **请求频率限制**：RATE_LIMIT_MAX_REQUESTS、RATE_LIMIT_WINDOW_MS、RATE_LIMIT_BLACKLIST_DURATION
-- **验证码配置**：CAPTCHA_SIZE、CAPTCHA_WIDTH、CAPTCHA_HEIGHT、CAPTCHA_EXPIRE
-- **邮箱验证码配置**：EMAIL_CODE_EXPIRE、EMAIL_CODE_LIMIT
-- **MongoDB备份配置**：MONGO_BACKUP_ENABLED、MONGO_BACKUP_PATH、MONGO_BACKUP_SCHEDULE、MONGO_BACKUP_RETENTION_DAYS
+1. **URL路径版本控制**：通过URL路径区分不同版本的API
+   - v1版本：`/v1/auth/login`、`/v1/file/public` 等
+   - v2版本：`/v2/auth/login`、`/v2/file/public` 等
+
+2. **向后兼容**：保留现有的v1 API，确保现有客户端不受影响
+
+3. **可扩展性**：可以轻松添加新的API版本（v3、v4等）
+
+### 目录结构
+
+- `routes/v1/` - v1版本的路由文件
+- `routes/v2/` - v2版本的路由文件
+- `controllers/v1/` - v1版本的控制器文件
+- `controllers/v2/` - v2版本的控制器文件
 
 ### 使用方法
 
-1. 修改 `.env.config` 文件中的配置项
-2. 保存文件后，系统会自动检测到变化并重新加载配置
-3. 对于某些配置（如服务器端口），可能需要重新启动服务器才能生效
+- 访问v1版本API：`http://localhost:3000/v1/auth/login`
+- 访问v2版本API：`http://localhost:3000/v2/auth/login`
+- 查看API文档：`http://localhost:3000/api-docs`
 
-### 配置项说明
+### 开发流程规范
 
-新增以下可选配置项来控制各组件的启用状态：
+为了确保服务的稳定性和可靠性，我们遵循以下开发流程规范：
 
-- `DB_ENABLED`：是否启用数据库连接（默认：true）
-- `REDIS_ENABLED`：是否启用Redis（默认：true）
-- `EMAIL_ENABLED`：是否启用邮件服务（默认：true）
-- `RATE_LIMIT_ENABLED`：是否启用请求速率控制（默认：true）
+1. **不直接修改线上稳定版本**：避免因为一个小改动导致整个服务不可用。
+
+2. **创建开发副本**：
+   - 复制一份最新的稳定 API 实现
+   - 命名为 `xxx_dev` 或者创建新的版本号（如 v2）
+   - 在新的副本上进行开发和测试
+
+3. **版本升级流程**：
+   - 在开发环境中充分测试新功能
+   - 确认稳定后，再用新版本替换旧的版本，或者升级路由指向新版本
+   - 通过 `/api` 路由可以控制默认指向的API版本
+
+### 示例开发流程
+
+1. 假设需要修改用户注册功能
+2. 复制 `routes/v1/auth.ts` 和 `controllers/v1/authController.ts` 到 `routes/v2/auth.ts` 和 `controllers/v2/authController.ts`
+3. 在v2版本中实现新的注册功能
+4. 测试v2版本的注册功能
+5. 确认稳定后，可以选择：
+   - 将默认API路由从v1切换到v2
+   - 或者逐步迁移客户端到v2版本
+
+## 路径别名
+
+为了简化模块导入和提高代码可读性，项目配置了路径别名：
+
+- `@/*` - 项目根目录
+- `@controllers/*` - controllers目录
+- `@routes/*` - routes目录
+- `@config/*` - config目录
+- `@models/*` - models目录
+- `@utility/*` - utility目录
+- `@services/*` - services目录
+- `@middleware/*` - middleware目录
+- `@exceptions/*` - exceptions目录
+
+### 使用示例
+
+```typescript
+// 使用路径别名导入模块
+import DB from '@/utility/mongoDB.js';
+import { generateJWT } from '@/utility/jwt.js';
+import User from '@/models/User.js';
+```
 
 ## 文件依赖关系
 
@@ -421,19 +512,28 @@ server.ts
 ├── config/dbConfig.ts
 ├── config/redisConfig.ts
 ├── routes/index.ts
-│   ├── controllers/indexController.ts
-├── routes/fileRouter.ts
-│   ├── controllers/fileController.ts
-├── routes/auth.ts
-│   ├── controllers/authController.ts
-│   │   ├── services/authService.ts
-│   │   │   ├── models/User.ts
-│   │   │   ├── utility/jwt.ts
-│   │   │   ├── config/redisConfig.ts
-│   │   │   ├── utility/email.ts
-│   │   │   ├── utility/redisQueue.ts
-│   │   │   ├── validators/authValidator.ts
-│   │   │   └── exceptions/AppError.ts
+│   ├── routes/v1/main.ts
+│   │   ├── routes/v1/auth.ts
+│   │   │   ├── controllers/v1/authController.ts
+│   │   │   │   ├── services/authService.ts
+│   │   │   │   │   ├── models/User.ts
+│   │   │   │   │   ├── utility/jwt.ts
+│   │   │   │   │   ├── config/redisConfig.ts
+│   │   │   │   │   ├── utility/email.ts
+│   │   │   │   │   ├── utility/redisQueue.ts
+│   │   │   │   │   ├── validators/authValidator.ts
+│   │   │   │   │   └── exceptions/AppError.ts
+│   │   ├── routes/v1/fileRouter.ts
+│   │   │   ├── controllers/v1/fileController.ts
+│   │   ├── routes/v1/index.ts
+│   │   │   ├── controllers/v1/indexController.ts
+│   ├── routes/v2/index.ts
+│   │   ├── routes/v2/auth.ts
+│   │   │   ├── controllers/v2/authController.ts
+│   │   ├── routes/v2/fileRouter.ts
+│   │   │   ├── controllers/v2/fileController.ts
+│   │   ├── routes/v2/main.ts
+│   │   │   ├── controllers/v2/indexController.ts
 ├── utility/mongoDB.ts
 ├── utility/redisQueue.ts
 │   ├── config/redisConfig.ts

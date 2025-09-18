@@ -1,18 +1,18 @@
-import User, {UserRole} from '../models/User.js';
-import {generateJWT} from '../utility/jwt.js';
-import {redisClient} from '../config/redisConfig.js';
-import {emailService} from '../utility/email.js';
-import {redisCacheMiddleware, DB_OPERATION_TYPE} from '../utility/redisQueue.js';
-import {validateEmail, validatePassword, validateName} from '../validators/authValidator.js';
+import User, { UserRole } from '@/models/User.js';
+import { generateJWT } from '@/utility/jwt.js';
+import { redisClient } from '@/config/redisConfig.js';
+import { emailService } from '@/utility/email.js';
+import { redisCacheMiddleware, DB_OPERATION_TYPE } from '@/utility/redisQueue.js';
+import { validateEmail, validatePassword, validateName } from '@/validators/authValidator.js';
 import {
     ValidationError,
     AuthenticationError,
     RateLimitError,
     NotFoundError
-} from '../exceptions/AppError.js';
+} from '@/exceptions/AppError.js';
 import dotenv from 'dotenv';
 
-dotenv.config({path: '.env.config'});
+dotenv.config({ path: '.env.config' });
 
 // 从环境变量获取配置
 const emailCodeConfig = {
@@ -236,7 +236,7 @@ export const updateUserInfo = async (
     await redisCacheMiddleware({
         type: DB_OPERATION_TYPE.UPDATE,
         collection: 'users',
-        condition: {_id: user._id},
+        condition: { _id: user._id },
         data: {
             name: name || user.name,
             avatarPath: avatarPath || user.avatarPath,

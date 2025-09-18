@@ -1,16 +1,23 @@
+/**
+ * @openapi
+ * tags:
+ *   name: Authentication
+ *   description: Authentication management
+ */
+
 import type { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import svgCaptcha from 'svg-captcha';
 import dotenv from 'dotenv';
-import { redisClient } from '../config/redisConfig.js';
-import { verifyJWT, generateJWT } from '../utility/jwt.js';
-import authService from '../services/authService.js';
+import { redisClient } from '@/config/redisConfig.js';
+import { verifyJWT, generateJWT } from '@/utility/jwt.js';
+import authService from '@/services/authService.js';
 import { 
   ValidationError, 
   AuthenticationError, 
   NotFoundError, 
   RateLimitError 
-} from '../exceptions/AppError.js';
+} from '@/exceptions/AppError.js';
 
 dotenv.config({ path: '.env.config' });
 
