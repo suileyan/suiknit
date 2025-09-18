@@ -54,7 +54,9 @@ suiknit/
 │       ├── fileController.ts  # 文件相关控制器
 │       └── indexController.ts # 主要控制器
 ├── models/                # 数据库模型目录
-│   └── User.ts            # 用户模型
+│   ├── User.ts            # 用户模型
+│   ├── File.ts            # 文件模型
+│   └── FilePermission.ts  # 文件权限模型
 ├── routes/                # 路由目录
 │   ├── v1/                # v1 版本路由
 │   │   ├── auth.ts        # 认证相关路由

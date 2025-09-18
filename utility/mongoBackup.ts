@@ -26,7 +26,7 @@ interface MongoBackupConfig {
 function getMongoBackupConfig(): MongoBackupConfig {
   return {
     backupEnabled: process.env.MONGO_BACKUP_ENABLED === 'true',
-    backupPath: process.env.MONGO_BACKUP_PATH || './backups',
+    backupPath: process.env.MONGO_BACKUP_PATH || './resource/backups',
     schedule: process.env.MONGO_BACKUP_SCHEDULE || '0 2 * * *', // 默认每天凌晨2点
     retentionDays: parseInt(process.env.MONGO_BACKUP_RETENTION_DAYS || '7', 10),
     dbHost: process.env.DB_HOST || 'localhost',

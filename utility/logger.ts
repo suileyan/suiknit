@@ -13,7 +13,7 @@ const logStreams = new Map<string, WriteStream>();
 // 获取日志文件路径
 const getLogFilePath = (): string => {
   const date = new Date().toISOString().split('T')[0];
-  return path.resolve(process.env.LOGPATH || './logs', `${date}.log`);
+  return path.resolve(process.env.LOGPATH || './resource/logs', `${date}.log`);
 };
 
 // 获取或创建日志文件流

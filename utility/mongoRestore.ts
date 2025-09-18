@@ -21,7 +21,7 @@ interface MongoRestoreConfig {
 // 获取 MongoDB 恢复配置
 function getMongoRestoreConfig(): MongoRestoreConfig {
   return {
-    backupPath: process.env.MONGO_BACKUP_PATH || './backups',
+    backupPath: process.env.MONGO_BACKUP_PATH || './resource/backups',
     dbHost: process.env.DB_HOST || 'localhost',
     dbPort: process.env.DB_PORT || '27017',
     dbName: process.env.DB_NAME || 'testdb',

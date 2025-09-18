@@ -1,7 +1,7 @@
 import express, { Router } from 'express';
-import authRoutes from '@/routes/v2/auth.js';
-import mainRoutes from '@/routes/v2/main.js';
-import fileRoutes from '@/routes/v2/fileRouter.js';
+import authRoutes from '@routes/dev/auth.js';
+import mainRoutes from '@routes/dev/main.js';
+import fileRoutes from '@routes/dev/fileRouter.js';
 
 const router: Router = express.Router();
 

@@ -15,7 +15,8 @@
       "@utility/*": ["utility/*"],
       "@services/*": ["services/*"],
       "@middleware/*": ["middleware/*"],
-      "@exceptions/*": ["exceptions/*"]
+      "@exceptions/*": ["exceptions/*"],
+      "@validators/*": ["validators/*"]
     },
     "strict": true,
     "esModuleInterop": true,
@@ -51,7 +52,9 @@
     "routes/**/*.ts",
     "config/**/*.ts",
     "models/**/*.ts",
-    "controllers/**/*.ts"
+    "controllers/**/*.ts",
+    "services/**/*.ts",
+    "validators/**/*.ts"
   ],
   "exclude": [
     "node_modules",

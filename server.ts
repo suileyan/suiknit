@@ -21,6 +21,8 @@ const app = express();
 const port = process.env.PORT || '4000';
 const LANMode = process.env.LAN || false;
 const server = process.env.SERVER || '0.0.0.0';
+// 从环境变量获取Swagger JSON文件路径，默认为 ./resource/swagger
+const swaggerPath = process.env.SWAGGER_PATH || './resource/swagger';
 
 
 const db = new DB(dbConfig.getConnectionString());
@@ -66,7 +68,7 @@ app.listen(+port, LANMode ? server : '', async () => {
     
     // 创建 swagger 目录并生成 Swagger JSON 文件
     try {
-        const swaggerDir = path.join(process.cwd(), 'swagger');
+        const swaggerDir = path.join(process.cwd(), swaggerPath);
         await fs.ensureDir(swaggerDir);
         const swaggerJsonPath = path.join(swaggerDir, 'swagger.json');
         await fs.writeJson(swaggerJsonPath, specs, { spaces: 2 });
