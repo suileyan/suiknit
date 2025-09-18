@@ -5,7 +5,7 @@ const router: Router = express.Router();
 
 /**
  * @openapi
- * /:
+ * /v2/:
  *   get:
  *     summary: Get current date (v2)
  *     description: Returns current date and time (v2 API)
@@ -33,7 +33,7 @@ router.get('/', getIndex);
 
 /**
  * @openapi
- * /:
+ * /v2/:
  *   post:
  *     summary: Echo request details (v2)
  *     description: Returns request details including body, query, params, headers, and IP (v2 API)

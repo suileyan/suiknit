@@ -11,4 +11,9 @@ router.use('/v2', v2Routes);
 // 默认版本路由 (可选，指向最新稳定版本)
 router.use('/api', v1Routes); // 当前将默认API指向v1
 
+// 根路径重定向到API文档
+router.get('/', (req, res) => {
+  res.redirect('/api-docs');
+});
+
 export default router;

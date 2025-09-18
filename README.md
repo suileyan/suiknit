@@ -548,6 +548,62 @@ server.ts
 └── utility/logger.ts
 ```
 
-## License
+## API 测试
 
-MIT
+本项目使用 PactumJS 进行 API 集成测试，并提供了基于 Swagger/OpenAPI 规范的自动化测试生成功能。
+
+### 测试框架
+
+- **PactumJS**: 轻量级的 API 测试框架，支持 BDD 和契约测试
+- **自动化生成**: 基于 Swagger/OpenAPI 规范自动生成测试文件
+- **测试目录**: `IntegrationTest/` 目录包含所有测试文件
+
+### 测试结构
+
+```
+IntegrationTest/
+├── generateTests.cjs      # 测试文件生成器
+├── health.test.cjs        # 基本健康检查测试
+├── all.test.cjs           # 主测试运行文件
+├── _v1.test.cjs           # v1 版本根路径测试
+├── _v1_auth_captcha.test.cjs     # 验证码接口测试
+├── _v1_auth_sendEmailCode.test.cjs  # 发送邮箱验证码接口测试
+├── _v1_auth_register.test.cjs     # 用户注册接口测试
+├── _v1_auth_login.test.cjs        # 用户登录接口测试
+├── _v1_auth_loginByToken.test.cjs # Token 验证接口测试
+├── _v1_auth_logout.test.cjs       # 用户注销接口测试
+├── _v1_auth_updateUserInfo.test.cjs # 更新用户信息接口测试
+└── _v1_file_public.test.cjs       # 公共资源接口测试
+```
+
+### 运行测试
+
+```bash
+# 运行所有 API 测试
+npm test
+
+# 重新生成测试文件
+npm run test:generate
+```
+
+### 测试生成器
+
+测试生成器 (`generateTests.cjs`) 能够：
+
+1. 基于预定义的 API 路径和方法生成测试文件
+2. 为每个接口添加适当的测试数据
+3. 生成独立的测试文件和主测试运行文件
+4. 支持不同的 HTTP 方法和请求参数
+
+### 开发自定义测试
+
+1. 手动创建测试文件: 在 `IntegrationTest/` 目录中创建新的 `.test.cjs` 文件
+2. 使用 PactumJS 语法编写测试用例
+3. 运行测试: `npm test`
+
+### 测试最佳实践
+
+1. **独立性**: 每个测试都应该独立运行，不依赖其他测试的结果
+2. **数据清理**: 测试完成后清理测试数据
+3. **环境隔离**: 使用测试环境配置，避免影响生产数据
+4. **断言明确**: 使用明确的断言来验证预期结果

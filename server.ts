@@ -1,5 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import fs from 'fs-extra';
+import path from 'path';
 import DB from '@/utility/mongoDB.js';
 import routes from '@/routes/index.js';
 import dbConfig from '@/config/dbConfig.js';
@@ -47,6 +49,7 @@ app.use(rateLimitAndBlacklistMiddleware);
 
 // Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+app.get('/api-docs/swagger.json', (req, res) => res.json(specs));
 
 // 使用版本化路由
 app.use('/', routes);
@@ -57,9 +60,21 @@ app.use(notFoundHandler);
 // 错误处理中间件
 app.use(errorHandler);
 
-app.listen(+port, LANMode ? server : '', () => {
+app.listen(+port, LANMode ? server : '', async () => {
     console.log(`服务器运行在端口 ${port}`);
     console.log(`Swagger UI available at http://localhost:${port}/api-docs`);
+    
+    // 创建 swagger 目录并生成 Swagger JSON 文件
+    try {
+        const swaggerDir = path.join(process.cwd(), 'swagger');
+        await fs.ensureDir(swaggerDir);
+        const swaggerJsonPath = path.join(swaggerDir, 'swagger.json');
+        await fs.writeJson(swaggerJsonPath, specs, { spaces: 2 });
+        console.log(`Swagger JSON 文件已生成: ${swaggerJsonPath}`);
+    } catch (err) {
+        console.error('生成 Swagger JSON 文件时出错:', err);
+    }
+    
     // 启动Redis队列处理
     startQueueProcessing().catch(err => {
         console.error('启动Redis队列处理失败:', err);

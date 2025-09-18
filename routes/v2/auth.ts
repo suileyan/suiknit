@@ -5,7 +5,7 @@ const router: Router = express.Router();
 
 /**
  * @openapi
- * /auth/captcha:
+ * /v2/auth/captcha:
  *   get:
  *     summary: Generate CAPTCHA (v2)
  *     description: Generate a CAPTCHA image for registration or login (v2 API)
@@ -41,7 +41,7 @@ router.get('/captcha', generateCaptcha);
 
 /**
  * @openapi
- * /auth/register:
+ * /v2/auth/register:
  *   post:
  *     summary: User Registration (v2)
  *     description: Register a new user account with enhanced security (v2 API)
@@ -116,7 +116,7 @@ router.post('/register', register);
 
 /**
  * @openapi
- * /auth/login:
+ * /v2/auth/login:
  *   post:
  *     summary: User Login (v2)
  *     description: Authenticate user with enhanced security (v2 API)

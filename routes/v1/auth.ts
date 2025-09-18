@@ -5,7 +5,7 @@ const router: Router = express.Router();
 
 /**
  * @openapi
- * /auth/captcha:
+ * /v1/auth/captcha:
  *   get:
  *     summary: Generate CAPTCHA
  *     description: Generate a CAPTCHA image for registration or login
@@ -43,7 +43,7 @@ router.get('/captcha', generateCaptcha);
 
 /**
  * @openapi
- * /auth/sendEmailCode:
+ * /v1/auth/sendEmailCode:
  *   post:
  *     summary: Send Email Verification Code
  *     description: Send a verification code to the user's email address
@@ -90,7 +90,7 @@ router.post('/sendEmailCode', sendEmailCode);
 
 /**
  * @openapi
- * /auth/register:
+ * /v1/auth/register:
  *   post:
  *     summary: User Registration
  *     description: Register a new user account with both image captcha and email verification code
@@ -169,7 +169,7 @@ router.post('/register', register);
 
 /**
  * @openapi
- * /auth/logout:
+ * /v1/auth/logout:
  *   get:
  *     summary: User Logout
  *     description: Logout user (client should delete token)
@@ -198,7 +198,7 @@ router.get('/logout', logout);
 
 /**
  * @openapi
- * /auth/updateUserInfo:
+ * /v1/auth/updateUserInfo:
  *   put:
  *     summary: Update User Information
  *     description: Update user profile information
@@ -267,7 +267,7 @@ router.put('/updateUserInfo', updateUserInfo);
 
 /**
  * @openapi
- * /auth/login:
+ * /v1/auth/login:
  *   post:
  *     summary: User Login
  *     description: Authenticate user and generate JWT token (supports both password and email verification code login)
@@ -352,7 +352,7 @@ router.post('/login', login);
 
 /**
  * @openapi
- * /auth/loginByToken:
+ * /v1/auth/loginByToken:
  *   get:
  *     summary: Token-based Authentication
  *     description: Verify existing JWT token and generate a new one

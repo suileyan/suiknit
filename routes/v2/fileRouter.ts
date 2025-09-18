@@ -5,7 +5,7 @@ const router: Router = express.Router();
 
 /**
  * @openapi
- * /file/public:
+ * /v2/file/public:
  *   get:
  *     summary: Get public resource (v2)
  *     description: Access public resources (v2 API)
