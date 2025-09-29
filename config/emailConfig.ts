@@ -18,7 +18,7 @@ const emailConfig: EmailConfig = {
   secure: true,
   auth: {
     user: '3220145931@qq.com',
-    pass: 'kctsfirovftadcgf'
+    pass: 'your_key'
   },
   from: '3220145931@qq.com'
 };

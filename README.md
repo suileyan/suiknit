@@ -332,27 +332,14 @@ export default uploadConfig;
 - `responses`: 各状态码的返回体描述与示例
 - 可在 controllers 与 routes 中混写注释；最终由 swagger-jsdoc 扫描合并。
 
-## 示例测试控制台（example/index.html）
-
-- 打开静态页面，设置 Base URL（默认 http://localhost:4000），粘贴 Token 后可测试受保护接口。
-- 已集成“安全检查”按钮，查看关键安全响应头和 `X-Request-Id`。
-- 上传/下载/验证码/登录等流程可一键发起并查看统一响应。
-
-## 开发与质量
+## 开发
 
 - 类型检查：`npm run type-check`
 - 规范检查：`npm run lint` / `npm run lint:fix`
 - 本地开发：`npm run dev`（推荐）
 
-## 安全提示
+## 安全
 
 - 所有密钥、密码仅放在 `.env.config`，切勿提交仓库。
 - 生产环境建议开启严格 CSP（需要为 Swagger/控制台设置白名单或拆分为独立域名）。
 - 若暴露外网，请结合反向代理（TLS、HSTS）、WAF/ACL、日志采集、主备/监控告警等。
-
-## 规划与扩展建议
-
-- 健康探针与指标：`/healthz`、`/readyz`、`/metrics`（Prometheus）
-- 统一请求校验：Zod/Joi + 自动 400/422 错误
-- 文件转码/缩略图/杀毒：对接任务队列（BullMQ）与外部服务
-- 更完整的审计日志与操作留痕
