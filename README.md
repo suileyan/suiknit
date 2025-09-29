@@ -247,9 +247,9 @@ export default uploadConfig;
   - GET `/dev/admin/logs/files`：列出可用 `.log` 文件
   - GET `/dev/admin/logs?file=&date=&tail=&method=&path=&status=&keyword=`：查询日志尾部
 
-示例与调试
-- GET `/dev/`：服务器时间
-- POST `/dev/`：回显请求（body/query/headers 等）
+调试
+- GET `/dev/`：
+- POST `/dev/`：返回请求（body/query/headers 等）
 
 ## 上传/下载要点
 
