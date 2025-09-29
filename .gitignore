@@ -143,6 +143,8 @@ package-lock.json
 /IntegrationTest/test/
 /swagger/
 /resource/
+# Ignore local tests
+/test/
 temp/
 .idea/
 AGENTS.md
