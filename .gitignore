@@ -144,7 +144,9 @@ package-lock.json
 /swagger/
 /resource/
 # Ignore local tests
-/test/
+test/
+# Ignore Claude workspace
+.claude/
 temp/
 .idea/
 AGENTS.md
