@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Suiknit 日志可视化</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/modern-css-reset/dist/reset.min.css">
+  <style>
+    body{font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;color:#1b1f23;padding:24px;}
+    header{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+    input,select,button{padding:6px 8px;border:1px solid #d0d7de;border-radius:6px}
+    button{background:#0969da;color:#fff;border-color:#0969da;cursor:pointer}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{border-bottom:1px solid #eee;padding:6px 8px;text-align:left;vertical-align:top}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;white-space:pre-wrap}
+    .muted{color:#6e7781}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+</head>
+<body>
+  <h1>Suiknit 日志可视化</h1>
+  <header>
+    <label>Base URL <input id="base-url" value="http://localhost:4000" size="28"></label>
+    <label>Token <input id="token" placeholder="Bearer Token" size="36"></label>
+    <button id="save">保存</button>
+    <span class="muted">本页需 ADMIN 及以上权限</span>
+  </header>
+
+  <section>
+    <div class="controls">
+      <label>日志文件 <select id="file-select"></select></label>
+      <label>Tail <input id="tail" type="number" value="500" min="1" max="5000" style="width:80px"></label>
+      <label>Method <select id="method">
+        <option value="">ALL</option>
+        <option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option>
+      </select></label>
+      <label>Path <input id="path" placeholder="/dev/auth/login" size="24"></label>
+      <label>Status <input id="status" placeholder="200" style="width:80px"></label>
+      <label>Keyword <input id="keyword" placeholder="search" size="16"></label>
+      <button id="load">加载</button>
+    </div>
+
+    <table id="log-table">
+      <thead>
+        <tr>
+          <th style="width:180px">时间</th>
+          <th>方法</th>
+          <th style="width:360px">路径</th>
+          <th>状态</th>
+          <th style="width:120px">耗时</th>
+          <th>IP</th>
+          <th class="mono">原始</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <script>
+    (function(){
+      const $ = (id)=>document.getElementById(id);
+      const S = {
+        baseUrl: localStorage.getItem('suiknit.baseUrl') || 'http://localhost:4000',
+        token: localStorage.getItem('suiknit.token') || ''
+      };
+      $('base-url').value = S.baseUrl;
+      $('token').value = S.token;
+      $('save').onclick=()=>{S.baseUrl=$('base-url').value.trim(); localStorage.setItem('suiknit.baseUrl', S.baseUrl); S.token=$('token').value.trim(); localStorage.setItem('suiknit.token', S.token)};
+      const authHeaders=()=> S.token? { Authorization:'Bearer '+S.token }: {};
+      const url=(p)=>/^https?:/i.test(p)?p:(S.baseUrl.replace(/\/$/,'')+p);
+
+      function parseLine(line){
+        // time:HH:mm:ss,ip:...,path:"...",method:GET,query:...,status:'200',response:...,timestamp:'ISO',time-consuming:'123ms'
+        const o={ raw: line };
+        const mTime= line.match(/time:([^,]+)/); if(mTime) o.time=mTime[1];
+        const mIp= line.match(/ip:([^,]+)/); if(mIp) o.ip=mIp[1];
+        const mPath= line.match(/path:"([^"]*)"/); if(mPath) o.path=mPath[1];
+        const mMethod= line.match(/method:([^,]+)/); if(mMethod) o.method=mMethod[1];
+        const mStatus= line.match(/status:'([^']+)'/); if(mStatus) o.status=mStatus[1];
+        const mCost= line.match(/time-consuming:'([^']+)'/); if(mCost) o.cost=mCost[1];
+        const mStamp= line.match(/timestamp:'([^']+)'/); if(mStamp) o.timestamp=mStamp[1];
+        return o;
+      }
+
+      async function fetchFiles(){
+        const r = await fetch(url('/dev/admin/logs/files'), { headers: authHeaders() });
+        const j = await r.json().catch(()=>null);
+        const items = j && j.body ? j.body : j; // 兼容统一响应
+        const sel=$('file-select'); sel.innerHTML='';
+        (items||[]).forEach(it=>{const opt=document.createElement('option'); opt.value=it.name; opt.textContent=it.name; sel.appendChild(opt)});
+        if (!sel.value && sel.options.length>0) sel.value=sel.options[sel.options.length-1].value; // 默认最新
+      }
+
+      function renderRows(lines){
+        const tb=document.querySelector('#log-table tbody'); if(!tb){ return; }
+        tb.innerHTML='';
+        lines.forEach(line=>{
+          const p=parseLine(line);
+          const tr=document.createElement('tr');
+          tr.innerHTML = `
+            <td>${(p.time||'')}</td>
+            <td>${(p.method||'')}</td>
+            <td class="mono">${(p.path||'')}</td>
+            <td>${(p.status||'')}</td>
+            <td>${(p.cost||'')}</td>
+            <td>${(p.ip||'')}</td>
+            <td class="mono">${p.raw.replace(/</g,'&lt;')}</td>`;
+          tb.appendChild(tr);
+        });
+      }
+
+      async function load(){
+        const q=new URLSearchParams();
+        const file=$('file-select').value; if(file) q.set('file', file);
+        const tail=$('tail').value; if(tail) q.set('tail', tail);
+        const method=$('method').value; if(method) q.set('method', method);
+        const pth=$('path').value.trim(); if(pth) q.set('path', pth);
+        const status=$('status').value.trim(); if(status) q.set('status', status);
+        const keyword=$('keyword').value.trim(); if(keyword) q.set('keyword', keyword);
+        try{
+          const r= await fetch(url('/dev/admin/logs?'+q.toString()), { headers: authHeaders() });
+          const j = await r.json().catch(()=>null);
+          const body = j && j.body ? j.body : j;
+          const lines = body && Array.isArray(body.lines) ? body.lines : [];
+          renderRows(lines);
+        }catch(e){
+          renderRows([]);
+        }
+      }
+
+      $('load').onclick=load;
+      fetchFiles().then(load);
+    })();
+  </script>
+</body>
+</html>

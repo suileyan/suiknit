@@ -1,14 +1,13 @@
-import type { Request, Response } from 'express';
+﻿import type { Request, Response } from 'express';
 import fs from 'fs/promises';
 import fsSync from 'fs';
 import path from 'path';
 import jwt from 'jsonwebtoken';
-import dotenv from 'dotenv';
+import { getAuthPayload } from '@/utility/auth.js';
 import { redisClient } from '@/config/redisConfig.js';
 import File from '@/models/File.js';
 import FilePermission from '@/models/FilePermission.js';
-
-dotenv.config({ path: '.env.config' });
+import downloadConfig from '@/config/downloadConfig.js';
 
 /**
  * @openapi
@@ -17,28 +16,9 @@ dotenv.config({ path: '.env.config' });
  *   description: File download management (dev API)
  */
 
-// 从环境变量获取下载配置
-const downloadConfig = {
-  downloadTokenSecret: process.env.DOWNLOAD_TOKEN_SECRET || 'download_secret_key',
-  downloadTokenExpiresIn: process.env.DOWNLOAD_TOKEN_EXPIRES_IN || '5m', // 5分钟过期
-  tokenRateLimit: parseInt(process.env.DOWNLOAD_TOKEN_RATE_LIMIT || '20', 10) // 20秒频率限制
-};
+// 下载配置改为 TS 配置导入
 
-// 验证JWT token并获取用户信息
-function verifyToken(req: Request): { id: string; email: string; name: string } | null {
-  const token = req.headers['authorization']?.replace('Bearer ', '') || req.headers['token'] as string;
-  
-  if (!token) {
-    return null;
-  }
-  
-  try {
-    const secret = process.env.JWENCRPTION || 'your-secret-key';
-    return jwt.verify(token, secret) as { id: string; email: string; name: string };
-  } catch {
-    return null;
-  }
-}
+// 使用统一工具解析并验证请求中的用户载荷
 
 // 检查用户对文件的权限
 async function checkFilePermission(fileId: string, userId: string): Promise<boolean> {
@@ -119,7 +99,8 @@ async function checkFilePermission(fileId: string, userId: string): Promise<bool
 export const getDownloadToken = async (req: Request, res: Response): Promise<void> => {
   try {
     // 验证token
-    const user = verifyToken(req);
+    const userPayload = getAuthPayload(req);
+    const user = userPayload ? { id: userPayload.id, email: userPayload.email, name: userPayload.name } : null;
     if (!user) {
       res.status(401).json({
         code: 401,
@@ -161,12 +142,25 @@ export const getDownloadToken = async (req: Request, res: Response): Promise<voi
       return;
     }
     
-    // 检查用户权限
-    const hasPermission = await checkFilePermission(fileId, user.id);
-    if (!hasPermission) {
+    // 资源级权限
+    const decision = await (async () => {
+      // inline minimal policy: 管理员/版主可下载任何文件；作者允许；否则需有权限记录
+      try {
+        const actor = await (async () => {
+          // 为与 policyService 对齐，尽量查库，若未来需要更多字段
+          return { id: user.id, role: (await (await import('@/models/User.js')).default.findById(user.id))?.role || 'user' } as any;
+        })();
+        const mod = await import('@/services/policyService.js');
+        return mod.canDownloadFile(actor as any, file as any);
+      } catch {
+        return { allow: false, reason: '权限校验失败' } as any;
+      }
+    })();
+    const allowed = (await decision) as any;
+    if (!allowed || !allowed.allow) {
       res.status(403).json({
         code: 403,
-        message: '您没有下载此文件的权限',
+        message: allowed?.reason || '您没有下载此文件的权限',
         data: null
       });
       return;
@@ -210,7 +204,7 @@ export const getDownloadToken = async (req: Request, res: Response): Promise<voi
     };
     
     const downloadToken = (jwt.sign as any)(tokenPayload, downloadConfig.downloadTokenSecret, {
-      expiresIn: downloadConfig.downloadTokenExpiresIn  // This should be '5m' or '300s'
+      expiresIn: downloadConfig.downloadTokenExpiresIn  // 应为 '5m' 或 '300s' 等格式
     });
     console.log('生成令牌:', { tokenPayload, secret: downloadConfig.downloadTokenSecret, expiresIn: downloadConfig.downloadTokenExpiresIn });
     
@@ -408,13 +402,13 @@ export const downloadFileById = async (req: Request, res: Response): Promise<voi
       return;
     }
     
-    // 删除Redis中的令牌，确保一次性使用
-    await redisClient.del(redisKey);
+    // 令牌删除策略: 非 Range/HEAD 请求再删除，便于多连接下载
+    const isRange = typeof req.headers['range'] === 'string'; const isHead = req.method === 'HEAD'; const reuseMode = (downloadConfig as any).tokenReuseMode; const shouldDelete = reuseMode === 'off' ? true : reuseMode === 'always' ? false : (!isRange && !isHead); if (shouldDelete) { await redisClient.del(redisKey); }
     
     // 检查文件是否存在
-    const filePath = path.resolve(file.path);
+    const uploadsRoot = process.env.UPLOAD_DIR || './resource/uploads'; const storedPath = (file.path || '').toString(); const normStored = storedPath.replace(/\\\\/g, '/'); const marker = 'resource/uploads/'; let candidate: string; if (path.isAbsolute(storedPath)) { candidate = storedPath; } else if (normStored.startsWith(marker)) { candidate = path.resolve(normStored); } else { candidate = path.resolve(path.join(uploadsRoot, storedPath)); }
     try {
-      await fs.access(filePath);
+      await fs.access(candidate);
     } catch (_error) {
       res.status(404).json({
         code: 404,
@@ -424,13 +418,44 @@ export const downloadFileById = async (req: Request, res: Response): Promise<voi
       return;
     }
     
+    // Range/HEAD support
+    const stat0 = await fs.stat(candidate);
+    const fileSize = stat0.size;
+    const rangeHeader = req.headers['range'] as string | undefined;
+    res.setHeader('Accept-Ranges', 'bytes'); res.setHeader('Cache-Control','no-transform'); res.setHeader('Connection','keep-alive'); if (req.method === 'HEAD') {
+      res.setHeader('Content-Length', fileSize);
+      res.status(200).end();
+      return;
+    }
+    if (rangeHeader) {
+      const m = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader);
+      if (!m) {
+        res.status(416).setHeader('Content-Range', 'bytes */' + fileSize).end();
+        return;
+      }
+      const start = m[1] ? parseInt(m[1], 10) : 0;
+      const end = m[2] ? parseInt(m[2], 10) : fileSize - 1;
+      if (isNaN(start) || isNaN(end) || start > end || end >= fileSize) {
+        res.status(416).setHeader('Content-Range', 'bytes */' + fileSize).end();
+        return;
+      }
+      const chunkSize = end - start + 1;
+      res.status(206);
+      res.setHeader('Content-Range', 'bytes ' + start + '-' + end + '/' + fileSize);
+      res.setHeader('Content-Length', chunkSize);
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="' + encodeURIComponent(file.name) + '"');
+      res.flushHeaders(); const stream = fsSync.createReadStream(candidate, { start: start, end: end }); stream.pipe(res);
+      return;
+    }
+
     // 设置响应头
-    res.setHeader('Content-Type', file.type || 'application/octet-stream');
+    res.setHeader('Content-Type', 'application/octet-stream');
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.name)}"`);
-    res.setHeader('Content-Length', file.size);
+    res.setHeader('Accept-Ranges','bytes'); res.setHeader('Content-Length', fileSize);
     
     // 发送文件
-    const fileStream = fsSync.createReadStream(filePath);
+    const fileStream = fsSync.createReadStream(candidate);
     fileStream.pipe(res);
     
     // 记录下载事件 (可选)
@@ -444,3 +469,11 @@ export const downloadFileById = async (req: Request, res: Response): Promise<voi
     });
   }
 };
+
+
+
+
+
+
+
+

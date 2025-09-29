@@ -1,665 +1,358 @@
 # Suiknit API Server
 
-一个基于 Node.js、Express 和 TypeScript 构建的现代化后端 API 服务器，集成了 MongoDB 数据库、JWT 认证、Redis 缓存和队列处理系统。
+一个基于 Node.js、Express 5 和 TypeScript 构建的现代化后端服务。提供用户认证与授权、文件上传/下载、管理员接口、统一响应格式、集中式路由访问控制、Redis 队列与频控、日志/安全中间件、Swagger 文档等。
 
-## 功能特性
+## 功能总览
 
-- **RESTful API**: 遵循 REST 设计原则的 API 接口
-- **TypeScript**: 使用 TypeScript 提供类型安全和更好的开发体验
-- **MongoDB 集成**: 通过 Mongoose ODM 连接 MongoDB 数据库
-- **JWT 认证**: 基于 JSON Web Token 的用户认证机制
-- **Redis 缓存和队列**: 使用 Redis 进行数据缓存和数据库操作队列处理
-- **自定义日志系统**: 带有敏感数据过滤功能的日志记录
-- **环境配置**: 通过 .env.config 文件进行环境配置管理
-- **API 版本控制**: 支持多版本 API 管理
-- **路径别名**: 使用路径别名简化模块导入
-- **邮箱验证码**: 支持邮箱验证的用户注册和登录
-- **请求频率限制**: 基于 Redis 的请求频率限制和 IP 黑名单机制
-- **MongoDB 自动备份**: 支持定时自动备份 MongoDB 数据库
-- **Swagger API 文档**: 自动生成并托管 API 文档
+- 服务基础
+  - TypeScript + 路径别名（见 `tsconfig.json`）
+  - 统一响应格式中间件（`ok/status/message/body/timestamp/time-consuming`）
+  - 错误处理与 404 处理
+  - Swagger UI + 自动生成 JSON（`/api-docs`）
+- 鉴权与权限
+  - JWT 登录/注册、邮箱验证码、图形验证码
+  - 统一鉴权工具（`utility/auth.ts`）：提取 Token、校验/解码、获取当前用户
+  - 集中式路由访问控制（`config/routeAccessRules.ts` + `middleware/routeAccessControl.ts`）
+  - 角色等级：`moderator > admin > user`，支持最小权限与“高改低、同级不可改”策略
+- 文件能力
+  - 单文件/多文件上传，分片上传（init/chunk/merge）
+  - 下载令牌生成（Redis 限频），支持 Range/断点
+  - 文件、权限模型（`models/File.ts`, `models/FilePermission.ts`）
+- 管理端（ADMIN+）
+  - 用户列表/详情/增删改，权限严格校验
+  - 文件列表/更新/删除（逻辑删除）
+- 可观测与安全
+  - 请求日志（敏感字段过滤）、请求 ID、限流+黑名单
+  - 安全头（helmet）、压缩（compression）、输入净化（sanitizer）
+  - MongoDB 备份任务、Redis 队列
 
-## 技术栈
-
-- [Node.js](https://nodejs.org/) - JavaScript 运行时环境
-- [Express.js](https://expressjs.com/) - Web 应用框架
-- [TypeScript](https://www.typescriptlang.org/) - JavaScript 的超集，添加了静态类型
-- [MongoDB](https://www.mongodb.com/) - NoSQL 数据库
-- [Mongoose](https://mongoosejs.com/) - MongoDB 对象建模工具
-- [Redis](https://redis.io/) - 内存数据结构存储
-- [JSON Web Token](https://jwt.io/) - 用于安全令牌传输的开放标准
-- [Nodemailer](https://nodemailer.com/) - Node.js 邮件发送模块
-- [svg-captcha](https://github.com/stevenliu216/svg-captcha) - SVG 验证码生成器
-
-## 项目结构
+## 目录结构
 
 ```
 suiknit/
-├── server.ts              # 应用入口文件
-├── config/                # 配置文件目录
-│   ├── cors/              # CORS 配置文件目录
-│   │   ├── allowed_origins.txt    # 允许的域名列表
-│   │   └── blocked_origins.txt    # 阻止的域名列表
-│   ├── dbConfig.ts        # 数据库配置
-│   ├── logConfig.ts       # 日志配置
-│   ├── redisConfig.ts     # Redis 配置
-│   ├── corsConfig.ts      # CORS 配置
-│   └── swaggerConfig.ts   # Swagger 配置
-├── controllers/           # 控制器目录
-│   ├── v1/                # v1 版本控制器
-│   │   ├── authController.ts  # 认证相关控制器
-│   │   ├── fileController.ts  # 文件相关控制器
-│   │   └── indexController.ts # 主要控制器
-│   └── v2/                # v2 版本控制器
-│       ├── authController.ts  # 认证相关控制器
-│       ├── fileController.ts  # 文件相关控制器
-│       └── indexController.ts # 主要控制器
-├── models/                # 数据库模型目录
-│   ├── User.ts            # 用户模型
-│   ├── File.ts            # 文件模型
-│   └── FilePermission.ts  # 文件权限模型
-├── routes/                # 路由目录
-│   ├── v1/                # v1 版本路由
-│   │   ├── auth.ts        # 认证相关路由
-│   │   ├── fileRouter.ts  # 文件相关路由
-│   │   ├── index.ts       # 主要路由
-│   │   └── main.ts        # v1 路由聚合
-│   ├── v2/                # v2 版本路由
-│   │   ├── auth.ts        # 认证相关路由
-│   │   ├── fileRouter.ts  # 文件相关路由
-│   │   ├── index.ts       # v2 路由聚合
-│   │   ├── main.ts        # 主要路由
-│   └── index.ts           # 路由入口文件
-├── services/              # 业务逻辑服务目录
-│   └── authService.ts     # 认证相关业务逻辑
-├── middleware/            # 中间件目录
-│   ├── common.ts          # 通用中间件
-│   ├── blacklist.ts       # 黑名单和频率限制中间件
-│   ├── errorHandler.ts     # 错误处理中间件
-│   └── responseFormatter.ts # 响应格式化中间件
-├── validators/            # 验证器目录
-│   └── authValidator.ts   # 认证相关验证器
-├── exceptions/            # 自定义异常目录
-│   └── AppError.ts        # 自定义异常类
-├── utility/               # 工具函数目录
-│   ├── jwt.ts             # JWT 相关工具函数
-│   ├── logger.ts          # 日志工具函数
-│   ├── mongoDB.ts         # MongoDB 数据库封装
-│   ├── mongoBackup.ts     # MongoDB 备份工具
-│   ├── mongoRestore.ts    # MongoDB 恢复工具
-│   ├── email.ts           # 邮件发送工具类
-│   ├── redisCache.ts      # Redis 缓存工具类
-│   └── redisQueue.ts      # Redis 队列处理工具类
-├── resource/              # 资源目录
-│   ├── logs/              # 日志文件
-│   ├── backups/           # MongoDB 备份文件
-│   ├── blacklist/         # IP 黑名单存储
-│   ├── uploads/           # 上传文件
-│   ├── chunks/            # 文件上传分片
-│   └── swagger/           # Swagger API 文档
-├── test/                  # 文件上传测试示例
-│   ├── fileUpload.html    # 文件上传测试页面
-│   ├── server.js          # 测试服务器
-│   ├── package.json       # 测试项目依赖
-│   └── README.md          # 测试说明文档
-├── .env.config            # 环境配置文件
-├── package.json           # 项目依赖和脚本
-└── tsconfig.json          # TypeScript 配置
+├── server.ts                     # 应用入口（中间件栈、路由、Swagger 生成）
+├── config/
+│   ├── dbConfig.ts               # 数据库连接串配置
+│   ├── corsConfig.ts             # CORS 配置
+│   ├── redisConfig.ts            # Redis 客户端初始化
+│   ├── swaggerConfig.ts          # Swagger 规范加载
+│   └── routeAccessRules.ts       # 路由访问控制规则（集中配置）
+├── controllers/
+│   └── dev/                      # 开发版本接口
+│       ├── authController.ts     # 登录、注册、验证码
+│       ├── userController.ts     # 个人资料/头像
+│       ├── fileController.ts     # 上传/分片上传/公共资源
+│       ├── fileDownloadController.ts # 下载令牌与下载
+│       ├── adminController.ts    # 管理端用户/文件接口
+│       └── indexController.ts    # 示例与基础接口
+├── routes/
+│   └── dev/
+│       ├── auth.ts               # /dev/auth/*
+│       ├── fileRouter.ts         # /dev/file/* 上传相关
+│       ├── fileDownloadRouter.ts # /dev/file/download/* 下载相关
+│       ├── admin.ts              # /dev/admin/* 管理端
+│       └── index.ts              # dev 路由聚合
+├── middleware/
+│   ├── common.ts                 # CORS/请求日志/请求体验证
+│   ├── errorHandler.ts           # 错误与 404 处理
+│   ├── blacklist.ts              # 频控与黑名单
+│   ├── responseFormatter.ts      # 统一响应包装（深度去套娃）
+│   ├── requestId.ts              # X-Request-Id 透传/生成
+│   ├── security.ts               # helmet/compression
+│   ├── sanitizer.ts              # 输入净化（防 XSS/控制字符）
+│   └── routeAccessControl.ts     # 集中式路由访问控制
+├── models/
+│   ├── User.ts                   # 用户与角色
+│   ├── File.ts                   # 文件元数据
+│   └── FilePermission.ts         # 文件访问权限
+├── services/
+│   └── authService.ts            # 登录/注册/用户资料更新/验证码发送
+├── utility/
+│   ├── auth.ts                   # 鉴权工具（获取 Token/当前用户/角色比较）
+│   ├── jwt.ts                    # JWT 生成/校验
+│   ├── logger.ts                 # 结构化日志与敏感字段过滤
+│   ├── mongoDB.ts                # Mongo 客户端封装
+│   ├── mongoBackup.ts            # Mongo 备份定时任务
+│   ├── email.ts                  # 邮件发送
+│   └── redisQueue.ts             # Redis 队列（异步 DB 操作）
+├── resource/
+│   ├── logs/                     # 访问日志
+│   ├── swagger/                  # 运行时导出的 swagger.json
+│   ├── uploads/                  # 上传文件根目录（可配置）
+│   └── backups/                  # Mongo 备份归档
+├── example/
+│   └── index.html                # 测试控制台（本地静态页面）
+└── test/                         # 手动/脚本测试（可选）
 ```
 
-## 快速开始
+## 启动与脚本
 
-### 环境要求
+- 开发：`npm run dev`（tsc watch + tsc-alias watch + nodemon 运行 dist/server.js）
+- 构建：`npm run build`（输出至 `dist/`）
+- 生产：`npm run start`（运行 `dist/server.js`）
+- 类型：`npm run type-check`（`tsc --noEmit`）
+- 规范：`npm run lint` / `npm run lint:fix`
 
-- Node.js >= 14.x
-- MongoDB >= 4.x
-- Redis >= 5.x
+## 环境变量（.env.config）
 
-### 安装依赖
+- 进程与基础
+  - `PORT`（默认 4000）、`LAN`（是否绑定外网）、`SERVER`（监听地址）
+  - `SWAGGER_PATH`（Swagger JSON 输出目录，默认 `./resource/swagger`）
+  - `ISLOG`（是否记录访问日志）、`LOGPATH`（日志目录）
+  - `JSON_LIMIT`（请求体大小限制，默认 1mb）
+- JWT/验证码/邮箱
+  - `JWENCRPTION`（仅密钥，建议保留在 .env）
+  - 图形验证码、邮箱验证码、邮箱发送等在 TS 配置中管理（详见“配置管理”和 CONFIG.md）
+- Mongo/Redis
+  - `DB_HOST/DB_PORT/DB_NAME/DB_USERNAME/DB_PASSWORD`（或连接串）
+  - `REDIS_HOST/REDIS_PORT/REDIS_PASSWORD`
+- 频控与黑名单
+  - `RATE_LIMIT_ENABLED`、`RATE_LIMIT_MAX_REQUESTS`、`RATE_LIMIT_WINDOW_MS`、`RATE_LIMIT_BLACKLIST_DURATION`
+- 上传/分片
+  - TS 配置文件：`config/uploadConfig.ts`
+- 下载令牌
+  - TS 配置文件：`config/downloadConfig.ts`
 
-```bash
-npm install
+## 配置管理
+
+- .env.config 仅包含“服务器运行”强相关项（端口、日志路径、JWT 密钥、DB/Redis 等）。
+- 业务可调项在 `config/` 目录的 TS 配置文件中管理，改动后配合 `npm run dev` 或重启服务生效。
+
+- 配置清单（TS）：
+  - 图形验证码：`config/captchaConfig.ts`
+  - 邮箱验证码：`config/authCodeConfig.ts`
+  - 邮件发送：`config/emailConfig.ts`
+  - 上传/分片：`config/uploadConfig.ts`
+  - 下载令牌：`config/downloadConfig.ts`
+
+- 示例：调整上传大小与目录（`config/uploadConfig.ts`）
+```ts
+const uploadConfig = {
+  uploadDir: './resource/uploads',
+  maxFileSize: 20 * 1024 * 1024, // 20MB
+  allowedTypes: ['image/*','text/*','application/pdf'],
+  enableChunkedUpload: true,
+  chunkDir: './resource/chunks',
+  chunkMaxSize: 100 * 1024 * 1024 // 100MB
+};
+export default uploadConfig;
 ```
 
-### 配置环境变量
+> 说明：不要将真实密钥提交到仓库，示例仅供参考。
 
-复制 `.env.config` 文件并根据需要修改配置：
+## 中间件栈（关键顺序）
 
-```bash
-# 服务配置
-PORT = 3000
-SERVER = 0.0.0.0
-LAN = true
+- `cors` → `requestLogger` → `requestId` → `securityHeaders()` → `compressionMiddleware`
+- `express.json/urlencoded`（带 `JSON_LIMIT`）→ `sanitizeInput` → `validateRequest`
+- `unifiedResponseMiddleware`（统一响应包装）
+- `loggingMiddleware`（按需记录日志与耗时）
+- `rateLimitAndBlacklistMiddleware`（频控与黑名单）
+- `routeAccessControl`（集中路由鉴权，未匹配默认放行）
+- `routes`（版本化 dev 路由）
+- `notFoundHandler` → `errorHandler`
 
-# 日志配置
-ISLOG = true
-LOGPATH = ./logs
+## 统一响应规范
 
-# jwt 相关配置
-JWENCRPTION = your_secret_key
-JWT_EXPIRES_IN = 30d
+- 成功/失败均包装为：
+  - `{ ok: boolean, status: number, message: string, body: any, timestamp: string, 'time-consuming': number }`
+- 中间件会自动“去套娃”：若控制器返回 `{code,message,data}` 或已经是 `{ok,status,body}`，会被归一至单层包装；最终 `body` 内不再出现 `ok/status/message/body` 等元字段。
 
-# 密码配置
-BCRYPT_SALT_ROUNDS = 12
+## 路由与权限
 
-# 数据库配置
-DB_HOST = localhost
-DB_PORT = 27017
-DB_NAME = testdb
-DB_USERNAME =
-DB_PASSWORD =
+- 公共（示例）
+  - `GET /dev/auth/captcha` 获取图形验证码
+  - `POST /dev/auth/sendEmailCode` 发送邮箱验证码
+  - `POST /dev/auth/register` 注册
+  - `POST /dev/auth/login` 登录（密码+图形验证码 / 邮箱验证码）
+  - `GET /dev/auth/loginByToken` Token 刷新
+  - `GET /dev/file/public?fileId=...` 查询公共文件信息
+- 需 USER 及以上
+  - `PUT /dev/auth/updateUserInfo` 更新个人信息
+  - `GET /dev/auth/avatar` 获取本人头像；`GET /dev/auth/avatar/:userId` 获取指定用户头像
+  - 上传：`/dev/file/upload/single|multiple|init|chunk|merge`
+  - 下载令牌：`POST /dev/file/download/token`
+- 需 ADMIN 及以上（管理端）
+  - 用户：`GET/POST/PATCH/DELETE /dev/admin/users`、`GET /dev/admin/users/:id`
+  - 文件：`GET /dev/admin/files`、`PATCH/DELETE /dev/admin/files/:id`
+- 集中式规则：见 `config/routeAccessRules.ts`（未匹配默认放行）。
 
-# 是否启用数据库连接
-DB_ENABLED = true
+## API 文档（Dev 路由）
 
-# 验证码配置
-CAPTCHA_SIZE = 4
-CAPTCHA_WIDTH = 120
-CAPTCHA_HEIGHT = 40
-CAPTCHA_EXPIRE = 300
+统一说明
+- 鉴权：除公开接口外，其它接口需在请求头携带 `Authorization: Bearer <JWT>`。
+- 响应：统一包装为 `{ ok, status, message, body, timestamp, 'time-consuming' }`，以下示例仅写 `body` 内部结构。
+- 频控与黑名单：见“中间件栈”，默认开启；日志查询等管理接口需要 ADMIN 及以上权限。
 
-# 邮箱验证码配置
-EMAIL_CODE_EXPIRE = 300
-EMAIL_CODE_LIMIT = 60
+认证与验证码（公开）
+- GET `/dev/auth/captcha`
+  - 说明：获取图形验证码
+  - 返回 body：`{ captchaId: string, captchaImage: data:image/svg+xml;base64,... }`
+- POST `/dev/auth/sendEmailCode`
+  - Body：`{ email: string, type: 'register' | 'login' }`
+  - 返回 body：`null`
+- POST `/dev/auth/register`
+  - Body：`{ email, password, name, captchaId, captchaCode, emailCode }`
+  - 返回 body：`{ token, user: { id, email, name } }`
+- POST `/dev/auth/login`
+  - 二选一：
+    - 密码登录：`{ email, password, captchaId, captchaCode }`
+    - 邮箱验证码登录：`{ email, emailCode }`
+  - 返回 body：`{ token, user: { id, email, name } }`
+- GET `/dev/auth/loginByToken`
+  - 头：`Authorization: Bearer <JWT>` 或 `token: <JWT>`
+  - 返回 body：`{ token, user: { id, email, name } }`
 
-# 是否启用邮件服务
-EMAIL_ENABLED = true
+用户资料
+- PUT `/dev/auth/updateUserInfo`（USER+）
+  - Body：`{ name?: string, avatarPath?: string }`
+  - 返回 body：更新后的用户概要
+- GET `/dev/auth/avatar`（USER+）
+  - 返回：头像二进制流（`image/*`/`image/svg+xml`）
+- GET `/dev/auth/avatar/:userId`
+  - 返回：指定用户头像二进制流
 
-# 请求频率限制配置
-RATE_LIMIT_MAX_REQUESTS = 100
-RATE_LIMIT_WINDOW_MS = 60000
-RATE_LIMIT_BLACKLIST_DURATION = 3600
+文件（上传/公共信息）
+- GET `/dev/file/public?fileId=...`
+  - 返回 body：`{ id, name, path, size, type, extension, createdAt }`
+- POST `/dev/file/upload/single`（USER+，`multipart/form-data`）
+  - 字段：`file`（单文件），可含 `description`, `isPublic`
+  - 返回 body：文件概要
+- POST `/dev/file/upload/multiple`（USER+，`multipart/form-data`）
+  - 字段：`files[]`（多文件），可含 `description`, `isPublic`
+  - 返回 body：文件列表
+- 分片上传（USER+）
+  - POST `/dev/file/upload/chunk/init` Body：`{ fileName, fileSize, chunkCount }`
+  - POST `/dev/file/upload/chunk` `multipart/form-data`：`{ chunk, uploadId, chunkIndex }`
+  - POST `/dev/file/upload/chunk/merge` Body：`{ uploadId, fileName, fileSize, chunkCount }`
 
-# 是否启用请求速率控制
-RATE_LIMIT_ENABLED = true
+文件下载（令牌）
+- POST `/dev/file/download/token`（USER+）
+  - Body：`{ fileId }`
+  - 返回 body：`{ downloadUrl: string }`
+- GET `/dev/file/download/:fileId?key=<token>`
+  - 返回：附件流，支持 Range 断点
 
-# IP黑名单存储配置
-BLACKLIST_STORAGE_PATH = ./blacklist
+管理端（ADMIN+）
+- 用户管理
+  - GET `/dev/admin/users?role=&page=&pageSize=`
+  - GET `/dev/admin/users/:id`
+  - POST `/dev/admin/users` Body：`{ email, name, password, role }`
+  - PATCH `/dev/admin/users/:id` Body：`{ email?, name?, password?, role? }`（字段级策略过滤）
+  - DELETE `/dev/admin/users/:id`
+- 文件管理
+  - GET `/dev/admin/files?status=&page=&pageSize=`
+  - PATCH `/dev/admin/files/:id` Body：`{ name?, description?, tags?, status? }`（字段级策略过滤）
+  - DELETE `/dev/admin/files/:id`
+- 日志查询
+  - GET `/dev/admin/logs/files`：列出可用 `.log` 文件
+  - GET `/dev/admin/logs?file=&date=&tail=&method=&path=&status=&keyword=`：查询日志尾部
 
-# Redis配置
-REDIS_HOST = localhost
-REDIS_PORT = 6379
-REDIS_PASSWORD =
+示例与调试
+- GET `/dev/`：服务器时间
+- POST `/dev/`：回显请求（body/query/headers 等）
 
-# 是否启用Redis
-REDIS_ENABLED = true
+## 上传/下载要点
 
-# 邮件配置
-# Gmail示例配置 (需要开启"安全性较低的应用访问权限"或使用应用专用密码)
-# EMAIL_HOST = smtp.gmail.com
-# EMAIL_PORT = 587
-# EMAIL_SECURE = false
-# EMAIL_USER = your_email@gmail.com
-# EMAIL_PASS = your_email_password
-# EMAIL_FROM = your_email@gmail.com
+- 上传：支持单文件、多文件、分片（init → chunk → merge）；按扩展名分类落盘，校验 `MAX_FILE_SIZE/ALLOWED_FILE_TYPES`。
+- 下载：生成短期 JWT 令牌写入 Redis（限频），下载接口支持 HTTP Range，设置合适的响应头（附件/长度/分块）。
 
-# QQ邮箱示例配置
- EMAIL_HOST = smtp.qq.com
- EMAIL_PORT = 465
- EMAIL_SECURE = true
- EMAIL_USER = 3220145931@qq.com
- EMAIL_PASS = zypwefcvxckodfbg
- EMAIL_FROM = 3220145931@qq.com
+## 模型与业务
 
-# 163邮箱示例配置
-# EMAIL_HOST = smtp.163.com
-# EMAIL_PORT = 465
-# EMAIL_SECURE = true
-# EMAIL_USER = your_email@163.com
-# EMAIL_PASS = your_163_auth_code
-# EMAIL_FROM = your_email@163.com
+- `models/User.ts`：邮箱、哈希密码、角色（user/admin/moderator）、头像路径、最后登录
+- `models/File.ts`：文件名、相对路径、大小、类型、扩展名、校验和、状态（active/archived/deleted）、标签
+- `models/FilePermission.ts`：按文件-用户记录访问权限（下载等）
 
-# MongoDB 备份配置
-MONGO_BACKUP_ENABLED = false  # 是否启用 MongoDB 备份功能
-MONGO_BACKUP_PATH = ./backups
-MONGO_BACKUP_SCHEDULE = 0 2 * * *  # 每天凌晨2点执行备份
-MONGO_BACKUP_RETENTION_DAYS = 7  # 保留7天的备份
+## 日志与备份
+
+- `utility/logger.ts`：结构化文本日志，过滤敏感字段（password/token/cookie/...），可通过 `ISLOG=true` 开启。
+- `utility/mongoBackup.ts`：定时备份（需要在服务入口已启用），备份文件位于 `resource/backups`。
+
+## Swagger 文档
+
+- 打开 `http://localhost:<PORT>/api-docs` 查看 UI。
+- 服务器启动时会写出 `resource/swagger/swagger.json`。
+
+### @openapi 注释编写指南
+
+本项目使用 swagger-jsdoc 解析源码中的 `@openapi` 注释（位于 controllers/routes 里），推荐写在路由定义上方或控制器函数上方。基本结构如下：
+
+示例：生成下载令牌（片段）
+
+```ts
+/**
+ * @openapi
+ * /dev/file/download/token:
+ *   post:
+ *     summary: 生成下载令牌
+ *     description: 为指定文件生成临时下载令牌
+ *     tags: [下载]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               fileId:
+ *                 type: string
+ *                 example: "file_1726..."
+ *             required: [fileId]
+ *     responses:
+ *       200:
+ *         description: 成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: "下载令牌生成成功"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     downloadUrl:
+ *                       type: string
+ *                       example: "/dev/file/download/<id>?key=<token>"
+ *       401:
+ *         description: 未授权
+ */
 ```
 
-### 开发模式运行
+常用元素说明
+- `tags`: 文档分组
+- `security`: 使用全局的 `bearerAuth`（在 swaggerConfig.ts 中定义）
+- `parameters`: 查询或路径参数（`in: query|path|header`）
+- `requestBody`: 请求体（支持 `application/json`、`multipart/form-data` 等）
+- `responses`: 各状态码的返回体描述与示例
+- 可在 controllers 与 routes 中混写注释；最终由 swagger-jsdoc 扫描合并。
 
-```bash
-npm run dev
-```
+## 示例测试控制台（example/index.html）
 
-### 生产环境构建
+- 打开静态页面，设置 Base URL（默认 http://localhost:4000），粘贴 Token 后可测试受保护接口。
+- 已集成“安全检查”按钮，查看关键安全响应头和 `X-Request-Id`。
+- 上传/下载/验证码/登录等流程可一键发起并查看统一响应。
 
-```bash
-npm run build
-```
+## 开发与质量
 
-### 生产环境运行
+- 类型检查：`npm run type-check`
+- 规范检查：`npm run lint` / `npm run lint:fix`
+- 本地开发：`npm run dev`（推荐）
 
-```bash
-npm run start
-```
+## 安全提示
 
-### 代码质量检查
+- 所有密钥、密码仅放在 `.env.config`，切勿提交仓库。
+- 生产环境建议开启严格 CSP（需要为 Swagger/控制台设置白名单或拆分为独立域名）。
+- 若暴露外网，请结合反向代理（TLS、HSTS）、WAF/ACL、日志采集、主备/监控告警等。
 
-```bash
-# 检查 TypeScript 类型问题
-npm run type-check
+## 规划与扩展建议
 
-# 检查 ESLint 问题
-npm run lint
-
-# 自动修复 ESLint 可修复的问题
-npm run lint:fix
-```
-
-## API 接口
-
-### v1 版本接口
-
-#### 认证接口
-
-- `GET /v1/auth/captcha` - 获取图像验证码
-- `POST /v1/auth/sendEmailCode` - 发送邮箱验证码
-- `POST /v1/auth/register` - 用户注册
-- `POST /v1/auth/login` - 用户登录
-- `GET /v1/auth/loginByToken` - 使用 Token 验证身份
-- `GET /v1/auth/logout` - 用户注销
-- `PUT /v1/auth/updateUserInfo` - 更新用户信息
-
-#### 主要接口
-
-- `GET /v1/` - 返回当前日期
-- `POST /v1/` - 返回请求详细信息
-
-#### 文件接口
-
-- `GET /v1/file/public` - 公共资源访问
-
-### v2 版本接口
-
-#### 认证接口
-
-- `GET /v2/auth/captcha` - 获取图像验证码 (v2)
-- `POST /v2/auth/register` - 用户注册 (v2)
-- `POST /v2/auth/login` - 用户登录 (v2)
-
-#### 主要接口
-
-- `GET /v2/` - 返回当前日期 (v2)
-- `POST /v2/` - 返回请求详细信息 (v2)
-
-#### 文件接口
-
-- `GET /v2/file/public` - 公共资源访问 (v2)
-
-### 默认版本接口
-
-- `GET /api/` - 返回当前日期 (指向 v1 版本)
-- `POST /api/` - 返回请求详细信息 (指向 v1 版本)
-
-## 数据库操作
-
-项目包含一个功能完整的 MongoDB 封装类 (`mgDB`)，提供以下功能：
-
-- 数据库连接管理
-- 增删改查 (CRUD) 操作
-- 聚合管道查询
-- 索引管理
-- 事务支持
-- 集合管理
-- 数据库级别操作
-- Redis 缓存支持（查询操作自动缓存）
-- Redis 队列处理（写操作先入队列）
-
-## Redis 缓存和队列系统
-
-项目现在使用 Redis 实现了两个重要功能来减轻数据库压力：
-
-### Redis 缓存
-- 自动缓存所有查询操作的结果
-- 提供缓存数据的获取、存储和删除功能
-- 减少对数据库的直接查询，提高响应速度
-
-### Redis 队列
-- 所有数据库写操作（插入、更新、删除）都先加入 Redis 队列
-- 异步处理数据库操作，提高系统响应性
-- 实现操作重试机制和失败处理
-- 有效缓解数据库压力
-
-## Redis 缓存和队列系统
-
-项目现在使用 Redis 实现了两个重要功能来减轻数据库压力：
-
-### Redis 缓存
-- 自动缓存所有查询操作的结果
-- 提供缓存数据的获取、存储和删除功能
-- 减少对数据库的直接查询，提高响应速度
-
-### Redis 队列
-- 所有数据库写操作（插入、更新、删除）都先加入 Redis 队列
-- 异步处理数据库操作，提高系统响应性
-- 实现操作重试机制和失败处理
-- 有效缓解数据库压力
-
-## 认证系统
-
-使用 JWT 进行用户认证：
-
-- `generateJWT`: 生成新的 JWT token
-- `verifyJWT`: 验证 JWT token 的有效性
-
-### 注册流程
-
-1. 用户请求图像验证码（GET /auth/captcha）
-2. 用户请求发送邮箱验证码（POST /auth/sendEmailCode）
-3. 系统发送验证码到用户邮箱
-4. 用户使用邮箱、密码、姓名、图像验证码和邮箱验证码进行注册（POST /auth/register）
-
-### 登录流程
-
-支持两种登录方式：
-
-1. **密码登录**：
-   - 用户请求图像验证码（GET /auth/captcha）
-   - 用户使用邮箱、密码和图像验证码登录（POST /auth/login）
-
-2. **邮箱验证码登录**：
-   - 用户请求发送登录邮箱验证码（POST /auth/sendEmailCode，type=login）
-   - 用户使用邮箱和邮箱验证码登录（POST /auth/login）
-
-### 密码安全
-
-- 使用 bcryptjs 对密码进行哈希处理
-- 支持通过环境变量配置 bcrypt salt rounds（BCRYPT_SALT_ROUNDS）
-
-## 请求频率限制和IP黑名单
-
-项目包含基于Redis的请求频率限制和IP黑名单功能：
-
-- 限制每个IP在指定时间窗口内的请求次数
-- 超过限制的IP将被自动拉黑
-- 黑名单IP将被拒绝访问所有接口
-
-### 配置项
-
-- `RATE_LIMIT_MAX_REQUESTS`: 每个时间窗口内允许的最大请求数 (默认: 100)
-- `RATE_LIMIT_WINDOW_MS`: 时间窗口大小，单位毫秒 (默认: 60000，即1分钟)
-- `RATE_LIMIT_BLACKLIST_DURATION`: IP黑名单持续时间，单位秒 (默认: 3600，即1小时)
-
-## 日志系统
-
-自定义日志系统具有以下特性：
-
-- 按日期分割日志文件
-- 敏感数据过滤 (密码、token 等)
-- 路径排除功能 (健康检查、静态文件等)
-- 请求/响应日志记录及耗时统计
-
-## 请求频率限制和IP黑名单
-
-项目包含基于Redis的请求频率限制和IP黑名单功能：
-
-- 限制每个IP在指定时间窗口内的请求次数
-- 超过限制的IP将被自动拉黑
-- 黑名单IP将被拒绝访问所有接口
-
-### 配置项
-
-- `RATE_LIMIT_MAX_REQUESTS`: 每个时间窗口内允许的最大请求数 (默认: 100)
-- `RATE_LIMIT_WINDOW_MS`: 时间窗口大小，单位毫秒 (默认: 60000，即1分钟)
-- `RATE_LIMIT_BLACKLIST_DURATION`: IP黑名单持续时间，单位秒 (默认: 3600，即1小时)
-
-## MongoDB 备份功能
-
-项目包含自动 MongoDB 备份功能，使用 node-cron 实现定时备份：
-
-- 服务启动时自动执行一次备份
-- 定时备份 MongoDB 数据库
-- 自动压缩备份文件为 .gz 格式
-- 自动清理过期备份文件
-- 可配置备份路径、定时计划和保留天数
-
-### 配置项
-
-- `MONGO_BACKUP_ENABLED`: 是否启用 MongoDB 备份功能 (默认: true)
-- `MONGO_BACKUP_PATH`: 备份文件存储路径 (默认: ./backups)
-- `MONGO_BACKUP_SCHEDULE`: 备份定时计划，使用 cron 表达式 (默认: "0 2 * * *" 每天凌晨2点)
-- `MONGO_BACKUP_RETENTION_DAYS`: 备份文件保留天数 (默认: 7天)
-
-### 手动执行备份
-
-```typescript
-import { manualMongoBackup } from './utility/mongoBackup.js';
-
-// 手动执行一次备份
-await manualMongoBackup();
-```
-
-### 恢复备份
-
-项目还提供了从备份文件恢复数据库的功能：
-
-```bash
-# 列出所有可用的备份文件并显示恢复命令
-npm run restore
-
-# 从指定备份文件恢复数据库
-npm run restore mongodb-testdb-2025-09-17T02-03-49-601Z
-```
-
-您也可以在代码中直接调用恢复功能：
-
-```typescript
-import { performMongoRestore } from './utility/mongoRestore.js';
-
-// 从指定备份文件恢复数据库
-await performMongoRestore('mongodb-testdb-2025-09-17T02-03-49-601Z');
-```
-
-## 邮件服务
-
-项目包含一个功能完整的邮件发送工具类 (`emailService`)，提供以下功能：
-
-- 支持多种收件人格式：
-  - 单个邮箱地址
-  - 邮箱地址数组（群发相同内容）
-  - 对象格式 {email: content}（个性化内容）
-  - 对象数组格式 [{email: '', content: ''}]（个性化内容）
-- 支持文本和HTML格式邮件
-- 完善的错误处理和日志记录
-- 基于 nodemailer 实现，支持各种邮件服务商
-
-### 使用示例
-
-```typescript
-import { emailService } from './utility/email.js';
-
-// 发送单个邮件
-await emailService.send('user@example.com', '邮件主题', '邮件内容');
-
-// 发送多个邮件（相同内容）
-await emailService.send(['user1@example.com', 'user2@example.com'], '邮件主题', '邮件内容');
-
-// 发送多个邮件（不同内容）
-await emailService.send({
-  'user1@example.com': '用户1的内容',
-  'user2@example.com': '用户2的内容'
-}, '邮件主题', '');
-
-// 发送HTML邮件
-await emailService.sendHtml('user@example.com', 'HTML邮件', '<h1>HTML内容</h1>');
-```
-
-## 开发规范
-
-1. 使用 TypeScript 严格模式进行开发
-2. 遵循模块化设计，分离控制器、路由和工具函数
-3. 在所有控制器中实现完整的错误处理
-4. 使用环境变量进行配置管理
-5. 通过自定义 MongoDB 封装类进行数据库操作
-6. 所有数据库操作都必须通过 Redis 缓存和队列系统处理，以减轻数据库压力
-7. MongoDB 数据库会根据配置自动进行定时备份，确保数据安全（可通过 MONGO_BACKUP_ENABLED 配置项启用或禁用）
-8. 服务启动时会自动执行一次 MongoDB 备份（如果启用了备份功能）
-9. 使用 ESLint 进行代码质量检查，确保代码风格一致性
-10. 遵循 API 版本控制规范，新功能应在新版本中实现
-11. 使用路径别名简化模块导入，提高代码可读性
-12. **版本开发规范**：
-    - 不直接修改线上稳定版本，避免因为一个小改动导致整个服务不可用
-    - 复制一份最新的稳定 API，命名为 `xxx_dev` 或者带版本号（如 v2），在新的副本上进行开发和测试
-    - 确认稳定后，再用新版本替换旧的，或者升级路由指向新版本
-13. **CORS 配置规范**：
-    - 在 `config/cors/` 目录中管理域名白名单和黑名单
-    - 通过 `allowed_origins.txt` 文件添加允许的域名
-    - 通过 `blocked_origins.txt` 文件添加阻止的域名
-    - 系统会自动加载这些配置并应用到 CORS 中间件
-
-## 代码质量检查
-
-项目集成了 ESLint 来确保代码质量和风格一致性：
-
-```bash
-# 检查 TypeScript 类型和 ESLint 问题
-npm run type-check
-npm run lint
-
-# 自动修复 ESLint 可修复的问题
-npm run lint:fix
-```
-
-## API 版本控制
-
-本项目实现了基于URL路径的API版本控制机制，允许在不影响现有客户端的情况下开发和部署新功能。
-
-### 版本控制策略
-
-1. **URL路径版本控制**：通过URL路径区分不同版本的API
-   - v1版本：`/v1/auth/login`、`/v1/file/public` 等
-   - v2版本：`/v2/auth/login`、`/v2/file/public` 等
-
-2. **向后兼容**：保留现有的v1 API，确保现有客户端不受影响
-
-3. **可扩展性**：可以轻松添加新的API版本（v3、v4等）
-
-### 目录结构
-
-- `routes/v1/` - v1版本的路由文件
-- `routes/v2/` - v2版本的路由文件
-- `controllers/v1/` - v1版本的控制器文件
-- `controllers/v2/` - v2版本的控制器文件
-
-### 使用方法
-
-- 访问v1版本API：`http://localhost:3000/v1/auth/login`
-- 访问v2版本API：`http://localhost:3000/v2/auth/login`
-- 查看API文档：`http://localhost:3000/api-docs`
-
-## API 端点说明
-
-### 开发版本 API (dev)
-
-#### 文件下载 API
-
-项目实现了安全的文件下载机制，通过两个步骤完成：
-
-1. **生成下载令牌**：用户首先请求生成一个临时的下载令牌
-   - 端点：`POST /dev/file/download/token`
-   - 需要提供文件ID和有效的JWT认证
-   - 系统会验证用户权限并生成一次性下载令牌
-   - 同一用户对同一文件的请求有20秒频率限制
-
-2. **下载文件**：使用下载令牌来实际下载文件
-   - 端点：`GET /dev/file/download/{fileId}?key={token}`
-   - 需要提供有效的下载令牌作为查询参数
-   - 系统验证令牌有效性、权限和文件匹配性
-   - 下载令牌只能使用一次，使用后立即失效
-
-这种机制确保了文件下载的安全性，防止未授权访问，并且令牌只能使用一次。
-
-### 开发流程规范
-
-为了确保服务的稳定性和可靠性，我们遵循以下开发流程规范：
-
-1. **不直接修改线上稳定版本**：避免因为一个小改动导致整个服务不可用。
-
-2. **创建开发副本**：
-   - 复制一份最新的稳定 API 实现
-   - 命名为 `xxx_dev` 或者创建新的版本号（如 v2）
-   - 在新的副本上进行开发和测试
-
-3. **版本升级流程**：
-   - 在开发环境中充分测试新功能
-   - 确认稳定后，再用新版本替换旧的版本，或者升级路由指向新版本
-   - 通过 `/api` 路由可以控制默认指向的API版本
-
-### 示例开发流程
-
-1. 假设需要修改用户注册功能
-2. 复制 `routes/v1/auth.ts` 和 `controllers/v1/authController.ts` 到 `routes/v2/auth.ts` 和 `controllers/v2/authController.ts`
-3. 在v2版本中实现新的注册功能
-4. 测试v2版本的注册功能
-5. 确认稳定后，可以选择：
-   - 将默认API路由从v1切换到v2
-   - 或者逐步迁移客户端到v2版本
-
-## 路径别名
-
-为了简化模块导入和提高代码可读性，项目配置了路径别名：
-
-- `@/*` - 项目根目录
-- `@controllers/*` - controllers目录
-- `@routes/*` - routes目录
-- `@config/*` - config目录
-- `@models/*` - models目录
-- `@utility/*` - utility目录
-- `@services/*` - services目录
-- `@middleware/*` - middleware目录
-- `@exceptions/*` - exceptions目录
-
-### 使用示例
-
-```typescript
-// 使用路径别名导入模块
-import DB from '@/utility/mongoDB.js';
-import { generateJWT } from '@/utility/jwt.js';
-import User from '@/models/User.js';
-```
-
-## 文件依赖关系
-
-项目中的主要文件依赖关系如下：
-
-```
-server.ts
-├── config/dbConfig.ts
-├── config/redisConfig.ts
-├── routes/index.ts
-│   ├── routes/v1/main.ts
-│   │   ├── routes/v1/auth.ts
-│   │   │   ├── controllers/v1/authController.ts
-│   │   │   │   ├── services/authService.ts
-│   │   │   │   │   ├── models/User.ts
-│   │   │   │   │   ├── utility/jwt.ts
-│   │   │   │   │   ├── config/redisConfig.ts
-│   │   │   │   │   ├── utility/email.ts
-│   │   │   │   │   ├── utility/redisQueue.ts
-│   │   │   │   │   ├── validators/authValidator.ts
-│   │   │   │   │   └── exceptions/AppError.ts
-│   │   ├── routes/v1/fileRouter.ts
-│   │   │   ├── controllers/v1/fileController.ts
-│   │   ├── routes/v1/index.ts
-│   │   │   ├── controllers/v1/indexController.ts
-│   ├── routes/v2/index.ts
-│   │   ├── routes/v2/auth.ts
-│   │   │   ├── controllers/v2/authController.ts
-│   │   ├── routes/v2/fileRouter.ts
-│   │   │   ├── controllers/v2/fileController.ts
-│   │   ├── routes/v2/main.ts
-│   │   │   ├── controllers/v2/indexController.ts
-├── utility/mongoDB.ts
-├── utility/redisQueue.ts
-│   ├── config/redisConfig.ts
-│   ├── utility/redisCache.ts
-├── utility/mongoBackup.ts
-│   ├── config/dbConfig.ts
-├── middleware/common.ts
-├── middleware/errorHandler.ts
-├── middleware/blacklist.ts
-│   ├── config/redisConfig.ts
-├── middleware/responseFormatter.ts
-└── utility/logger.ts
-```
-
+- 健康探针与指标：`/healthz`、`/readyz`、`/metrics`（Prometheus）
+- 统一请求校验：Zod/Joi + 自动 400/422 错误
+- 文件转码/缩略图/杀毒：对接任务队列（BullMQ）与外部服务
+- 更完整的审计日志与操作留痕

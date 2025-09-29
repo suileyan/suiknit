@@ -34,7 +34,6 @@ import type { Request, Response } from 'express';
  *                   example: "2025-09-18T10:00:00.000Z"
  */
 
-// GET 处理函数 (v2版本)
 export const getIndex = (_req: Request, res: Response): void => {
   res.status(200).json({
     code: 200,
@@ -93,7 +92,6 @@ export const getIndex = (_req: Request, res: Response): void => {
  *                       example: "::1"
  */
 
-// POST 处理函数 (v2版本)
 export const postIndex = (req: Request, res: Response): void => {
   res.status(200).json({
     code: 200,

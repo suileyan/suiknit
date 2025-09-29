@@ -1,15 +1,14 @@
-import type { Request, Response } from 'express';
+﻿import type { Request, Response } from 'express';
 import svgCaptcha from 'svg-captcha';
-import jwt from 'jsonwebtoken';
-import dotenv from 'dotenv';
+import { getTokenFromRequest, verifyTokenAndDecode } from '@/utility/auth.js';
+import captchaConfig from '@/config/captchaConfig.js';
 import { redisClient } from '@/config/redisConfig.js';
-import { generateJWT, verifyJWT } from '@/utility/jwt.js';
+import { generateJWT } from '@/utility/jwt.js';
+import { verifyCaptcha as verifyCaptchaService, verifyEmailCode, registerUser, loginWithPassword, loginWithEmailCode } from '@/services/authService.js';
 import { 
-  ValidationError, 
-  AuthenticationError 
+  ValidationError
 } from '@/exceptions/AppError.js';
 
-dotenv.config({ path: '.env.config' });
 
 /**
  * @openapi
@@ -18,13 +17,7 @@ dotenv.config({ path: '.env.config' });
  *   description: Authentication management (dev API)
  */
 
-// 从环境变量获取验证码配置
-const captchaConfig = {
-  size: parseInt(process.env.CAPTCHA_SIZE || '4', 10),
-  width: parseInt(process.env.CAPTCHA_WIDTH || '120', 10),
-  height: parseInt(process.env.CAPTCHA_HEIGHT || '40', 10),
-  expire: parseInt(process.env.CAPTCHA_EXPIRE || '300', 10) // 默认5分钟
-};
+// 图形验证码配置改为 TS 配置导入
 
 /**
  * @openapi
@@ -170,7 +163,7 @@ export const generateCaptcha = async (req: Request, res: Response): Promise<void
  *                       properties:
  *                         id:
  *                           type: string
- *                           example: "user_id_v2"
+ *                           example: "user_id"
  *                         email:
  *                           type: string
  *                           example: "test@example.com"
@@ -185,229 +178,98 @@ export const generateCaptcha = async (req: Request, res: Response): Promise<void
 // 注册处理函数
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password, name, captchaId, captchaCode } = req.body;
+    const { email, password, name, captchaId, captchaCode, emailCode } = req.body;
 
-    // 验证参数
-    if (!email || !password || !name || !captchaId || !captchaCode) {
-      res.status(400).json({
-        code: 400,
-        message: '邮箱、密码、姓名、图像验证码ID、图像验证码不能为空',
-        data: null
-      });
+    if (!email || !password || !name || !captchaId || !captchaCode || !emailCode) {
+      res.status(400).json({ code: 400, message: '邮箱、密码、姓名、图形验证码与邮箱验证码均为必填', data: null });
       return;
     }
 
-    // 验证图像验证码
-    if (redisClient) {
-      const storedCaptcha = await redisClient.get(captchaId);
-      if (!storedCaptcha || storedCaptcha !== captchaCode.toLowerCase()) {
-        res.status(400).json({
-          code: 400,
-          message: '图像验证码错误或已过期',
-          data: null
-        });
-        return;
-      }
-      // 验证成功后删除验证码
-      await redisClient.del(captchaId);
-    } else {
-      console.error('Redis客户端未初始化');
-      res.status(500).json({
-        code: 500,
-        message: '验证码验证失败',
-        data: null
-      });
+    const captchaValid = await verifyCaptchaService(captchaId, captchaCode);
+    if (!captchaValid) {
+      res.status(400).json({ code: 400, message: '图形验证码错误或已过期', data: null });
       return;
     }
 
-    const user = {
-      id: 'user_id_v2',
-      email,
-      name
-    };
+    const emailOk = await verifyEmailCode(email, emailCode, 'register');
+    if (!emailOk) {
+      res.status(400).json({ code: 400, message: '邮箱验证码错误或已过期', data: null });
+      return;
+    }
 
-    // 生成JWT token
-    const token = generateJWT(user);
-
-    res.status(201).json({
-      code: 201,
-      message: '注册成功',
-      data: {
-        token,
-        user
-      }
-    });
+    const { token, user } = await registerUser(email, password, name);
+    res.status(201).json({ token, user });
   } catch (error) {
-    console.error('注册处理时出错:', error);
-    
-    // 处理自定义异常
     if (error instanceof ValidationError) {
-      res.status(400).json({
-        code: 400,
-        message: error.message,
-        data: null
-      });
+      res.status(400).json({ code: 400, message: error.message, data: null });
       return;
     }
-    
-    res.status(500).json({
-      code: 500,
-      message: '注册失败',
-      data: null
-    });
+    res.status(500).json({ code: 500, message: '注册失败', data: null });
   }
 };
 
-// 登录处理函数 (v2增强版本)
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password, captchaId, captchaCode } = req.body;
+    const { email, password, captchaId, captchaCode, emailCode } = req.body;
 
-    // 验证基本参数
-    if (!email || !password || !captchaId || !captchaCode) {
-      res.status(400).json({
-        code: 400,
-        message: '邮箱、密码、图像验证码ID、图像验证码不能为空',
-        data: null
-      });
+    if (!email) {
+      res.status(400).json({ code: 400, message: '邮箱不能为空', data: null });
       return;
     }
 
-    // 验证图像验证码
-    if (redisClient) {
-      const storedCaptcha = await redisClient.get(captchaId);
-      if (!storedCaptcha || storedCaptcha !== captchaCode.toLowerCase()) {
-        res.status(400).json({
-          code: 400,
-          message: '图像验证码错误或已过期',
-          data: null
-        });
+    let result: { token: string; user: any } | undefined;
+    if (password) {
+      if (!captchaId || !captchaCode) {
+        res.status(400).json({ code: 400, message: '密码登录需要提供图形验证码', data: null });
         return;
       }
-      // 验证成功后删除验证码
-      await redisClient.del(captchaId);
-    } else {
-      console.error('Redis客户端未初始化');
-      res.status(500).json({
-        code: 500,
-        message: '验证码验证失败',
-        data: null
-      });
-      return;
-    }
-
-    // 验证用户凭据
-    // 注意：这里需要实现实际的用户验证逻辑
-    // 为了简化示例，我们假设凭据正确
-
-    const user = {
-      id: 'user_id_v2',
-      email,
-      name: 'V2 User'
-    };
-
-    // 生成JWT token
-    const token = generateJWT(user);
-
-    res.status(200).json({
-      code: 200,
-      message: '登录成功',
-      data: {
-        token,
-        user
+      const captchaValid = await verifyCaptchaService(captchaId, captchaCode);
+      if (!captchaValid) {
+        res.status(400).json({ code: 400, message: '图形验证码错误或已过期', data: null });
+        return;
       }
-    });
-  } catch (error) {
-    console.error('登录处理时出错:', error);
-    
-    // 处理自定义异常
-    if (error instanceof ValidationError) {
-      res.status(400).json({
-        code: 400,
-        message: error.message,
-        data: null
-      });
+      result = await loginWithPassword(email, password);
+    } else if (emailCode) {
+      const emailOk = await verifyEmailCode(email, emailCode, 'login');
+      if (!emailOk) {
+        res.status(400).json({ code: 400, message: '邮箱验证码错误或已过期', data: null });
+        return;
+      }
+      result = await loginWithEmailCode(email);
+    } else {
+      res.status(400).json({ code: 400, message: '请提供密码+图形验证码，或提供邮箱验证码完成登录', data: null });
       return;
     }
-    
-    if (error instanceof AuthenticationError) {
-      res.status(401).json({
-        code: 401,
-        message: error.message,
-        data: null
-      });
-      return;
-    }
-    
-    res.status(500).json({
-      code: 500,
-      message: '登录失败',
-      data: null
-    });
+
+    res.status(200).json(result);
+  } catch (_error) {
+    res.status(500).json({ code: 500, message: '登录失败', data: null });
   }
 };
 
-// Token验证处理函数 (v2版本)
 export const loginByToken = (req: Request, res: Response): void => {
   try {
-    const token = req.get('token') || req.get('authorization')?.replace('Bearer ', '');
-    
+    const token = getTokenFromRequest(req);
     if (!token) {
-      res.status(400).json({
-        code: 400,
-        message: '缺少token',
-        data: null
-      });
+      res.status(400).json({ code: 400, message: '缺少token', data: null });
       return;
     }
 
-    // 验证JWT token
-    if (verifyJWT(token)) {
-      // 解码token获取用户信息
-      const decoded = jwt.decode(token) as { id: string; email: string; name: string } | null;
-      
-      if (!decoded) {
-        res.status(401).json({
-          code: 401,
-          message: '无效的token',
-          data: null
-        });
-        return;
-      }
-
-      // 生成新的token
-      const newToken = generateJWT({
-        id: decoded.id,
-        email: decoded.email,
-        name: decoded.name
-      });
-
-      res.status(200).json({
-        code: 200,
-        message: 'token验证成功',
-        data: {
-          token: newToken,
-          user: {
-            id: decoded.id,
-            email: decoded.email,
-            name: decoded.name
-          }
-        }
-      });
-    } else {
-      res.status(401).json({
-        code: 401,
-        message: 'token已过期或无效',
-        data: null
-      });
+    const decoded = verifyTokenAndDecode(token);
+    if (!decoded) {
+      res.status(401).json({ code: 401, message: 'token无效或已过期', data: null });
+      return;
     }
-  } catch (error) {
-    console.error('Token验证时出错:', error);
-    res.status(500).json({
-      code: 500,
-      message: '验证失败',
-      data: null
-    });
+
+    if (!decoded?.id) {
+      res.status(401).json({ code: 401, message: 'token无效', data: null });
+      return;
+    }
+
+    const newToken = generateJWT({ id: decoded.id, email: decoded.email, name: decoded.name });
+    res.status(200).json({ token: newToken, user: { id: decoded.id, email: decoded.email, name: decoded.name } });
+  } catch (_error) {
+    res.status(500).json({ code: 500, message: '验证失败', data: null });
   }
 };
 
@@ -619,3 +481,4 @@ export const loginByToken = (req: Request, res: Response): void => {
  *       500:
  *         description: Verification failed
  */
+

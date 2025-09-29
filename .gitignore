@@ -137,11 +137,12 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
-/Lingma.md
-/QWEN.md
 /backups/
 
 package-lock.json
 /IntegrationTest/test/
 /swagger/
 /resource/
+temp/
+.idea/
+AGENTS.md

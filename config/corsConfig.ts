@@ -1,5 +1,5 @@
-// CORS configuration
-// This file defines CORS settings for the application
+// CORS 配置
+// 本文件定义了应用的 CORS 相关设置
 
 import fs from 'fs';
 import path from 'path';
@@ -43,7 +43,7 @@ const corsConfig: CORSConfig = {
   allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'X-Access-Token', 'Token'],
   exposedHeaders: ['X-Access-Token'],
   credentials: true,
-  maxAge: 86400 // 24 hours
+  maxAge: 86400 // 24 小时
 };
 
 export default corsConfig;

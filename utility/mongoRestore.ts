@@ -161,7 +161,7 @@ async function main(): Promise<void> {
   }
 }
 
-// Main function execution
+// 主函数执行入口
 main().catch(console.error);
 
 export default {

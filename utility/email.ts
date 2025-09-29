@@ -1,20 +1,10 @@
 import nodemailer, { Transporter, SendMailOptions } from 'nodemailer';
-import dotenv from 'dotenv';
-import { writeLog } from './logger.js';
+import { writeLog } from '@/utility/logger.js';
 import { Request } from 'express';
-
-dotenv.config({ path: '.env.config' });
+import emailConfig from '@/config/emailConfig.js';
 
 // 邮件配置接口
-interface EmailConfig {
-  host: string;
-  port: number;
-  secure: boolean;
-  auth: {
-    user: string;
-    pass: string;
-  };
-}
+interface EmailConfig { enabled?: boolean; host: string; port: number; secure: boolean; auth: { user: string; pass: string; }; from?: string }
 
 // 邮件对象接口
 interface EmailObject {
@@ -32,24 +22,18 @@ interface EmailResult {
 class EmailService {
   private transporter: Transporter;
   private readonly defaultFrom: string;
+  private readonly enabled: boolean;
 
   constructor() {
-    // 从环境变量获取邮件配置
-    const emailConfig: EmailConfig = {
-      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.EMAIL_PORT || '587'),
-      secure: process.env.EMAIL_SECURE === 'true', // true for 465, false for other ports
-      auth: {
-        user: process.env.EMAIL_USER || '',
-        pass: process.env.EMAIL_PASS || ''
-      }
-    };
-
-    this.defaultFrom = process.env.EMAIL_FROM || emailConfig.auth.user;
-    this.transporter = nodemailer.createTransport(emailConfig);
-
-    // 验证配置
-    this.verifyConfig();
+    const cfg = emailConfig as EmailConfig;
+    this.enabled = Boolean(cfg.enabled);
+    this.defaultFrom = (cfg.from || cfg.auth.user || '').toString();
+    this.transporter = this.enabled
+      ? nodemailer.createTransport(cfg)
+      : nodemailer.createTransport({ jsonTransport: true } as any);
+    if (this.enabled) {
+      this.verifyConfig();
+    }
   }
 
   // 验证邮件配置
@@ -58,7 +42,7 @@ class EmailService {
       await this.transporter.verify();
       console.log('邮件服务器连接成功');
     } catch (error) {
-      console.error('邮件服务器连接失败:', error);
+      console.warn('邮件服务器连接失败（请检查邮件配置）:', error);
     }
   }
 
@@ -109,6 +93,11 @@ class EmailService {
     content: string
   ): Promise<EmailResult[]> {
     try {
+      if (!this.enabled) {
+        const disabled: EmailResult = { success: false, message: '邮件服务未启用' };
+        await this.logEmailResult(disabled, subject, content);
+        return [disabled];
+      }
       let results: EmailResult[];
       
       // 情况1: 单个邮箱地址

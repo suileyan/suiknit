@@ -11,7 +11,7 @@ import mongoose, {
     QueryOptions,
     RootFilterQuery
 } from 'mongoose';
-import { cacheData, getCachedData, removeCachedData } from './redisCache.js';
+import { cacheData, getCachedData, removeCachedData } from '@/utility/redisCache.js';
 
 export default class mgDB {
     private readonly url: string | null = null;
@@ -65,7 +65,7 @@ export default class mgDB {
         const Model = this._getModel<T>(collectionName);
         // Cast the result to the expected type
         const result = await Model.insertMany(docs);
-        const typedResult = result as unknown as Document<T>[];
+        const typedResult = result as unknown as Document<T>[]; // 将结果断言为期望的类型
         
         // 将结果缓存到Redis
         for (const doc of typedResult) {

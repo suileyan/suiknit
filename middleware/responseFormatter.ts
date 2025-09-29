@@ -4,67 +4,101 @@ import dotenv from 'dotenv';
 
 dotenv.config({ path: '.env.config' });
 
-// 定义统一返回格式的接口
-interface ApiResponse {
-  code: number;
+type Wrapped = {
+  ok: boolean;
+  status: number;
   message: string;
-  data: any;
-}
+  body: any;
+  timestamp: string;
+  'time-consuming': number; // milliseconds
+};
 
-// 定义自定义的 Response 类型，包含重写的 json 方法
 interface CustomResponse extends Response {
   json: (data: any) => this;
 }
 
-// 统一返回格式中间件
+// Helpers to detect and normalize payload shapes
+const isWrappedShape = (v: any): boolean => {
+  return !!(
+    v && typeof v === 'object' &&
+    'ok' in v && typeof (v as any).ok === 'boolean' &&
+    'status' in v && typeof (v as any).status === 'number' &&
+    'body' in v
+  );
+};
+
+const isLegacyShape = (v: any): boolean => {
+  return !!(v && typeof v === 'object' && 'code' in v && 'data' in v);
+};
+
+const unwrapOnce = (v: any): { body: any; msg?: string } => {
+  if (isWrappedShape(v)) {
+    return { body: (v as any).body, msg: typeof (v as any).message === 'string' ? (v as any).message : undefined };
+  }
+  if (isLegacyShape(v)) {
+    return { body: (v as any).data, msg: typeof (v as any).message === 'string' ? (v as any).message : undefined };
+  }
+  return { body: v };
+};
+
+const unwrapDeep = (v: any): { body: any; msgChain: string[] } => {
+  const messages: string[] = [];
+  let current = v;
+  // Avoid excessive recursion; unwrap up to 5 layers defensively
+  for (let i = 0; i < 5; i++) {
+    const { body, msg } = unwrapOnce(current);
+    if (msg) messages.push(msg);
+    if (body === current) break; // no more unwrap
+    current = body;
+    if (!isWrappedShape(current) && !isLegacyShape(current)) break;
+  }
+  return { body: current, msgChain: messages };
+};
+
+// Enforce a consistent response envelope across all JSON responses
 export function unifiedResponseMiddleware(req: Request, res: CustomResponse, next: NextFunction): void {
-  console.log('收到请求');
-  // 保存原始的 json 方法
+  const start = process.hrtime.bigint();
   const originalJson = res.json;
 
-  // 重写 json 方法以实现统一返回格式
-  res.json = function(data: any) {
-    // 如果已经是统一格式，直接返回
-    if (data && typeof data === 'object' && ('code' in data) && ('message' in data)) {
-      return originalJson.call(this, data);
-    }
-    
-    // 默认成功响应
-    const response: ApiResponse = {
-      code: res.statusCode || 200,
-      message: 'success',
-      data: data
+  res.json = function (this: Response, payload: any) {
+    const status = res.statusCode || 200;
+    const ok = status >= 200 && status < 400;
+    const now = new Date().toISOString();
+    const end = process.hrtime.bigint();
+    const cost = Number(end - start) / 1e6; // ms
+
+    // Normalize payload to a single-layer body and collect messages (outermost first)
+    const { body: normalizedBody, msgChain } = unwrapDeep(payload);
+
+    // Prefer message from payload if provided; fall back to default
+    const message = (msgChain.find(m => !!m) ?? (ok ? 'success' : 'error')) as string;
+
+    const wrapped: Wrapped = {
+      ok,
+      status,
+      message,
+      body: normalizedBody,
+      timestamp: now,
+      'time-consuming': cost
     };
-    
-    return originalJson.call(this, response);
-  };
+
+    return originalJson.call(this, wrapped);
+  } as any;
 
   next();
 }
 
-// 日志记录中间件
-export function loggingMiddleware(req: Request, res: CustomResponse, next: NextFunction): void {
-  const start = process.hrtime.bigint(); // 纳秒级
-  // 保存原始的 json 方法
-  const originalJson = res.json;
-
-  // 重写 json 方法以添加日志记录
-  res.json = function(data: any) {
+// Lightweight logger that does not alter the response body
+export function loggingMiddleware(req: Request, res: Response, next: NextFunction): void {
+  const start = process.hrtime.bigint();
+  res.on('finish', () => {
     const end = process.hrtime.bigint();
-    const consume = Number(end - start) / 1e6; // 转为毫秒
-    const status = res.statusCode || 200;
-
-    // 检查是否启用日志
-    const isLogEnabled = process.env.ISLOG === 'true';
-    if (isLogEnabled) {
-      writeLog(req, data, status, consume)
-        .catch(err => console.error('日志记录失败:', err));
+    const cost = Number(end - start) / 1e6; // ms
+    if (process.env.ISLOG === 'true') {
+      const status = res.statusCode || 200;
+      writeLog(req, { path: req.originalUrl }, status, cost).catch(err => console.error('日志记录失败:', err));
     }
-
-    // 调用原始的 json 方法
-    return originalJson.call(this, data);
-  };
-
+  });
   next();
 }
 

@@ -16,11 +16,12 @@ export const logConfig: LogConfig = {
         '/auth/captcha'
     ],
 
-    // 完全不记录日志的路径
+    // 完全不记录日志的路径（支持以 * 结尾的前缀匹配）
     excludePaths: [
         '/favicon.ico',
         '/robots.txt',
-        '/upload/chunk'
+        '/upload/chunk',
+        '/dev/file/upload*'
     ],
 
     // 敏感字段，不记录在日志中

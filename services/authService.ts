@@ -10,14 +10,12 @@ import {
     RateLimitError,
     NotFoundError
 } from '@/exceptions/AppError.js';
-import dotenv from 'dotenv';
+import authCodeConfig from '@/config/authCodeConfig.js';
 
-dotenv.config({ path: '.env.config' });
-
-// 从环境变量获取配置
+// 邮箱验证码配置（TS）
 const emailCodeConfig = {
-    expire: parseInt(process.env.EMAIL_CODE_EXPIRE || '300', 10),
-    limit: parseInt(process.env.EMAIL_CODE_LIMIT || '60', 10)
+    expire: authCodeConfig.expire,
+    limit: authCodeConfig.limit
 };
 
 // 验证图像验证码
@@ -229,7 +227,21 @@ export const updateUserInfo = async (
 
     // 更新用户信息
     if (name) user.name = name;
-    if (avatarPath) user.avatarPath = avatarPath;
+    if (avatarPath) {
+        const normalizeAvatarPath = (input: string): string => {
+            let p = (input || '').replace(/\\/g, '/').replace(/^\.\//, '');
+            const uploadDir = (process.env.UPLOAD_DIR || './resource/uploads').replace(/\\/g, '/').replace(/^\.\//, '');
+            const marker = 'resource/uploads/';
+            const idx = p.indexOf(marker);
+            if (idx >= 0) {
+                p = p.slice(idx + marker.length);
+            } else if (p.startsWith(uploadDir)) {
+                p = p.slice(uploadDir.length).replace(/^\//, '');
+            }
+            return p;
+        };
+        user.avatarPath = normalizeAvatarPath(avatarPath);
+    }
     user.updatedAt = new Date();
 
     // 将更新操作添加到Redis队列

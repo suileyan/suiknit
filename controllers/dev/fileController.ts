@@ -1,16 +1,14 @@
-import type { Request, Response } from 'express';
+﻿import type { Request, Response } from 'express';
 import fs from 'fs/promises';
 import fsSync from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import dotenv from 'dotenv';
-import jwt from 'jsonwebtoken';
-import { verifyJWT } from '@/utility/jwt.js';
+import { getAuthPayload } from '@/utility/auth.js';
+import uploadConfig from '@/config/uploadConfig.js';
 import File from '@/models/File.js';
 import FilePermission from '@/models/FilePermission.js';
 import { FilePermissionRole } from '@/models/FilePermission.js';
 
-dotenv.config({ path: '.env.config' });
 
 /**
  * @openapi
@@ -158,21 +156,13 @@ const fileTypeMap: { [key: string]: string } = {
   'app': 'other'
 };
 
-// 从环境变量获取文件上传配置
-const uploadConfig = {
-  uploadDir: process.env.UPLOAD_DIR || './resource/uploads',
-  maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760', 10), // 默认10MB
-  allowedTypes: process.env.ALLOWED_FILE_TYPES?.split(',') || ['image/*', 'text/*', 'application/pdf'],
-  enableChunkedUpload: process.env.ENABLE_CHUNKED_UPLOAD === 'true',
-  chunkDir: process.env.CHUNK_DIR || './resource/chunks'
-};
+// 上传配置由 TS 文件提供
 
 // 获取文件类型
-function getFileType(extension: string): string {
-  const ext = extension.toLowerCase().substring(1); // 移除点号并转为小写
-  return fileTypeMap[ext] || 'other';
+function getSubDirByType(type: string) {
+  const map: Record<string,string> = { image: 'img', video: 'video', audio: 'audio', document: 'doc', archive: 'archive', code: 'code', font: 'font', data: 'data', ebook: 'ebook', other: 'other' };
+  return map[type] || 'other';
 }
-
 // 确保上传目录存在
 async function ensureUploadDir(): Promise<void> {
   try {
@@ -184,6 +174,12 @@ async function ensureUploadDir(): Promise<void> {
     console.error('创建上传目录失败:', error);
     throw error;
   }
+}
+
+// 根据扩展名解析文件类别
+function getFileType(extension: string): string {
+  const ext = (extension || '').toLowerCase().replace(/^\./, '');
+  return (fileTypeMap as any)[ext] || 'other';
 }
 
 // 验证文件类型
@@ -198,8 +194,9 @@ function isValidFileType(extension: string): boolean {
   // 检查具体的文件类型
   return uploadConfig.allowedTypes.some(type => {
     if (type.endsWith('/*')) {
-      const baseType = type.slice(0, -1); // 移除 /*
-      return fileType.startsWith(baseType);
+      // e.g. image/* -> image
+      const baseType = type.slice(0, -2);
+      return fileType === baseType;
     }
     return type === fileType || type === '*/*';
   });
@@ -217,23 +214,7 @@ function calculateFileHash(filePath: string): Promise<string> {
   });
 }
 
-// 验证JWT token并获取用户信息
-function verifyToken(req: Request): { id: string; email: string; name: string } | null {
-  const token = req.headers['authorization']?.replace('Bearer ', '') || req.headers['token'] as string;
-  
-  if (!token) {
-    return null;
-  }
-  
-  if (verifyJWT(token)) {
-    // 解码token获取用户信息
-    return jwt.decode(token) as { id: string; email: string; name: string } | null;
-  }
-  
-  return null;
-}
-
-// 获取公共资源 (v2版本)
+// 使用统一工具从请求中解析并验证用户载荷
 /**
  * @openapi
  * /dev/file/public:
@@ -425,7 +406,7 @@ export const getPublicFile = async (req: Request, res: Response): Promise<void> 
 export const uploadSingleFile = async (req: Request, res: Response): Promise<void> => {
   try {
     // 验证token
-    const user = verifyToken(req);
+    const user = getAuthPayload(req);
     if (!user) {
       res.status(401).json({
         code: 401,
@@ -469,9 +450,13 @@ export const uploadSingleFile = async (req: Request, res: Response): Promise<voi
       return;
     }
     
-    // 生成唯一文件名
+    // 生成唯一文件名，并根据文件类型选择子目录
+    const typeForDir = getFileType(fileExtension);
+    const subDir = getSubDirByType(typeForDir);
+    const targetDir = path.join(uploadConfig.uploadDir, subDir);
+    await fs.mkdir(targetDir, { recursive: true });
     const fileName = `${Date.now()}_${crypto.randomBytes(16).toString('hex')}${fileExtension}`;
-    const filePath = path.join(uploadConfig.uploadDir, fileName);
+    const filePath = path.join(targetDir, fileName);
     
     // 移动文件到目标位置
     await fs.rename(req.file.path, filePath);
@@ -486,7 +471,7 @@ export const uploadSingleFile = async (req: Request, res: Response): Promise<voi
     // 创建文件记录
     const fileRecordData = {
       name: req.file.originalname,
-      path: path.relative(process.cwd(), filePath),
+      path: path.relative(path.resolve(uploadConfig.uploadDir), filePath),
       size: req.file.size,
       type: fileType,
       extension: fileExtension,
@@ -617,7 +602,7 @@ export const uploadSingleFile = async (req: Request, res: Response): Promise<voi
 export const uploadMultipleFiles = async (req: Request, res: Response): Promise<void> => {
   try {
     // 验证token
-    const user = verifyToken(req);
+    const user = getAuthPayload(req);
     if (!user) {
       res.status(401).json({
         code: 401,
@@ -657,9 +642,13 @@ export const uploadMultipleFiles = async (req: Request, res: Response): Promise<
         continue;
       }
       
-      // 生成唯一文件名
+      // 生成唯一文件名，并根据类型选择子目录
+      const typeForDir = getFileType(fileExtension);
+      const subDir2 = getSubDirByType(typeForDir);
+      const targetDir2 = path.join(uploadConfig.uploadDir, subDir2);
+      await fs.mkdir(targetDir2, { recursive: true });
       const uniqueFileName = `${Date.now()}_${crypto.randomBytes(16).toString('hex')}${fileExtension}`;
-      const filePath = path.join(uploadConfig.uploadDir, uniqueFileName);
+      const filePath = path.join(targetDir2, uniqueFileName);
       
       // 移动文件到目标位置
       await fs.rename(file.path, filePath);
@@ -673,7 +662,7 @@ export const uploadMultipleFiles = async (req: Request, res: Response): Promise<
       // 创建文件记录
       const fileRecord = new File({
         name: file.originalname,
-        path: path.relative(process.cwd(), filePath),
+        path: path.relative(path.resolve(uploadConfig.uploadDir), filePath),
         size: file.size,
         type: fileType,
         extension: fileExtension,
@@ -783,7 +772,7 @@ export const uploadMultipleFiles = async (req: Request, res: Response): Promise<
 export const initChunkUpload = async (req: Request, res: Response): Promise<void> => {
   try {
     // 验证token
-    const user = verifyToken(req);
+    const user = getAuthPayload(req);
     if (!user) {
       res.status(401).json({
         code: 401,
@@ -898,7 +887,7 @@ export const initChunkUpload = async (req: Request, res: Response): Promise<void
 export const uploadChunk = async (req: Request, res: Response): Promise<void> => {
   try {
     // 验证token
-    const user = verifyToken(req);
+    const user = getAuthPayload(req);
     if (!user) {
       res.status(401).json({
         code: 401,
@@ -1045,7 +1034,7 @@ export const uploadChunk = async (req: Request, res: Response): Promise<void> =>
 export const mergeChunks = async (req: Request, res: Response): Promise<void> => {
   try {
     // 验证token
-    const user = verifyToken(req);
+    const user = getAuthPayload(req);
     if (!user) {
       res.status(401).json({
         code: 401,
@@ -1081,7 +1070,11 @@ export const mergeChunks = async (req: Request, res: Response): Promise<void> =>
     // 生成最终文件路径
     const fileExtension = path.extname(fileName);
     const finalFileName = `${Date.now()}_${crypto.randomBytes(16).toString('hex')}${fileExtension}`;
-    const finalFilePath = path.join(uploadConfig.uploadDir, finalFileName);
+    const dirType = getFileType(fileExtension);
+    const finalSub = getSubDirByType(dirType);
+    const finalDir = path.join(uploadConfig.uploadDir, finalSub);
+    await fs.mkdir(finalDir, { recursive: true });
+    const finalFilePath = path.join(finalDir, finalFileName);
     
     // 创建写入流
     const writeStream = fsSync.createWriteStream(finalFilePath);
@@ -1115,12 +1108,12 @@ export const mergeChunks = async (req: Request, res: Response): Promise<void> =>
     
     // 获取文件扩展名和类型
     const finalFileExtension = path.extname(fileName);
-    const fileType = getFileType(finalFileExtension);
+    const fileType = dirType;
     
     // 创建文件记录
     const fileRecordData = {
       name: fileName,
-      path: path.relative(process.cwd(), finalFilePath),
+      path: path.relative(path.resolve(uploadConfig.uploadDir), finalFilePath),
       size: fileSize,
       type: fileType,
       extension: finalFileExtension,
@@ -1176,3 +1169,9 @@ export const mergeChunks = async (req: Request, res: Response): Promise<void> =>
     });
   }
 };
+
+
+
+
+
+

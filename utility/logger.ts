@@ -1,9 +1,10 @@
-// logger.ts
+// 日志工具
 import fs from 'fs/promises';
 import path from 'node:path';
 import { createWriteStream, WriteStream } from 'node:fs';
 import dotenv from 'dotenv';
 import type { Request } from 'express';
+import { logConfig } from '@/config/logConfig.js';
 
 dotenv.config({ path: '.env.config' });
 
@@ -32,9 +33,16 @@ const getLogStream = async (): Promise<WriteStream> => {
   return logStreams.get(filePath)!;
 };
 
-// 检查路径是否应该被排除
+// 检查路径是否应该被排除（支持以 * 结尾的前缀匹配）
 const shouldExcludePath = (reqPath: string, excludeList: string[]): boolean => {
-  return excludeList.some(excludePath => reqPath === excludePath || reqPath.startsWith(excludePath + '/'));
+  return excludeList.some(p => {
+    if (!p) return false;
+    if (p.endsWith('*')) {
+      const prefix = p.slice(0, -1);
+      return reqPath.startsWith(prefix);
+    }
+    return reqPath === p || reqPath.startsWith(p + '/');
+  });
 };
 
 // 过滤敏感字段
@@ -55,26 +63,14 @@ const filterSensitiveFields = (obj: any, sensitiveFields: string[], placeholder:
 };
 
 // 格式化日志数据
-const formatLogData = (req: Request, data: any, status: number, consume: number, excludeBodyPaths: string[]): string | null => {
-  const excludePaths = [
-    '/favicon.ico',
-    '/robots.txt'
-  ];
-  
+const formatLogData = (req: Request, data: any, status: number, consume: number): string | null => {
+  const excludePaths = logConfig.excludePaths || [];
   if (shouldExcludePath(req.path, excludePaths)) return null;
 
-  const excludeBody = shouldExcludePath(req.path, excludeBodyPaths);
-  
-  // 敏感字段列表
-  const sensitiveFields = [
-    'password',
-    'token',
-    'authorization',
-    'cookie',
-    'session',
-    'captcha',
-    'captchaimage'
-  ];
+  const excludeBody = shouldExcludePath(req.path, logConfig.excludeBodyPaths || []);
+
+  // 敏感字段列表（来自配置）
+  const sensitiveFields = (logConfig.sensitiveFields || []).map(s => s.toLowerCase());
 
   // 过滤敏感字段
   const filteredBody = req.body
@@ -87,11 +83,7 @@ const formatLogData = (req: Request, data: any, status: number, consume: number,
     ? filterSensitiveFields(data, sensitiveFields, '[已屏蔽]')
     : null;
 
-  return `time:${new Date().toLocaleTimeString()},ip:${req.ip},path:"${req.path}",method:${req.method},query:${
-    excludeBody ? '[EXCLUDED]' : filteredQuery ? JSON.stringify(filteredQuery) : 'null'
-  },body:${excludeBody ? '[EXCLUDED]' : filteredBody ? JSON.stringify(filteredBody) : 'null'},status:'${status}',response:${
-    filteredData ? JSON.stringify(filteredData) : 'null'
-  },timestamp:'${new Date().toISOString()}',time-consuming:'${consume}ms'
+  return `time:${new Date().toLocaleTimeString()},ip:${req.ip},path:"${req.path}",method:${req.method},query:${excludeBody ? '[EXCLUDED]' : filteredQuery ? JSON.stringify(filteredQuery) : 'null'},body:${excludeBody ? '[EXCLUDED]' : filteredBody ? JSON.stringify(filteredBody) : 'null'},status:'${status}',response:${filteredData ? JSON.stringify(filteredData) : 'null'},timestamp:'${new Date().toISOString()}',time-consuming:'${consume}ms'
 `;
 };
 
@@ -102,16 +94,8 @@ export const writeLog = async (req: Request, data: any, status: number, consume:
     const isLogEnabled = process.env.ISLOG === 'true';
     if (!isLogEnabled) return;
 
-    const excludeBodyPaths = [
-      '/health',
-      '/status',
-      '/ping',
-      '/metrics',
-      '/auth/captcha'
-    ];
-
     const logStream = await getLogStream();
-    const logData = formatLogData(req, data, status, consume, excludeBodyPaths);
+    const logData = formatLogData(req, data, status, consume);
 
     if (!logData) return;
 

@@ -1,0 +1,1448 @@
+﻿<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8" />
+  <title>Suiknit API 测试控制台</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      background: #0f172a;
+      color: #0f172a;
+    }
+    main {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 24px 24px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    header {
+      background: linear-gradient(135deg, #1d4ed8, #312e81);
+      color: #f8fafc;
+      padding: 32px 24px;
+      border-bottom: 1px solid rgba(248, 250, 252, 0.15);
+    }
+    header h1 {
+      margin: 0 0 12px;
+      font-size: 32px;
+      font-weight: 700;
+    }
+    header p {
+      margin: 0 0 16px;
+      max-width: 720px;
+      line-height: 1.6;
+    }
+    header .controls,
+    header .token-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    label.inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+    }
+    #base-url {
+      min-width: 280px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: none;
+      font-size: 15px;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+    }
+    button {
+      appearance: none;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 14px;
+      background: #2563eb;
+      color: #f8fafc;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.2s ease;
+    }
+    button.secondary {
+      background: rgba(248, 250, 252, 0.2);
+      color: #f8fafc;
+    }
+    button.danger {
+      background: #b91c1c;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+    }
+    section {
+      background: #f8fafc;
+      border-radius: 16px;
+      padding: 24px 24px 32px;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+    }
+    section h2 {
+      margin: 0 0 16px;
+      color: #1d4ed8;
+    }
+    form {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      background: #ffffff;
+      display: grid;
+      gap: 12px;
+    }
+    form:last-of-type {
+      margin-bottom: 0;
+    }
+    form h3 {
+      margin: 0;
+      color: #0f172a;
+      font-size: 18px;
+    }
+    form .field-group {
+      display: grid;
+      gap: 12px;
+    }
+    form label span {
+      display: block;
+      margin-bottom: 4px;
+      font-weight: 600;
+      color: #0f172a;
+    }
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #cbd5f5;
+      font-size: 15px;
+    }
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    input[type="checkbox"] {
+      margin-right: 4px;
+    }
+    .form-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+    .meta-line {
+      font-size: 13px;
+      color: #475569;
+    }
+    .output {
+      background: #0f172a;
+      color: #f8fafc;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 13px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    .output[data-state="error"] {
+      background: #7f1d1d;
+    }
+    .output[data-state="pending"] {
+      background: #334155;
+    }
+    .flex {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .flex > * {
+      flex: 1 1 240px;
+    }
+    .captcha-box {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .captcha-box img {
+      height: 60px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #ffffff;
+    }
+    progress {
+      width: 100%;
+      height: 16px;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    progress::-webkit-progress-bar {
+      background: #e2e8f0;
+    }
+    progress::-webkit-progress-value {
+      background: #2563eb;
+    }
+    .status-line {
+      font-size: 14px;
+      color: #1f2937;
+    }
+    a {
+      color: #2563eb;
+      word-break: break-all;
+    }
+    @media (max-width: 720px) {
+      main {
+        padding: 24px 16px 48px;
+      }
+      header {
+        padding: 24px 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Suiknit API 测试控制台</h1>
+    <p>通过表单驱动的方式快速调用 <code>/dev</code> 接口，覆盖验证码获取、注册登录、文件上传 / 下载以及常用调试端点。与 <code>resource/swagger/swagger.json</code> 保持同步，可按需调整。</p>
+    <div class="controls">
+      <label class="inline" for="base-url">基础地址</label>
+      <input id="base-url" type="text" placeholder="http://localhost:3000" />
+      <button id="save-base-url" type="button">保存地址</button>
+      <button id="ping-server" type="button" class="secondary">Ping</button>
+      <span id="ping-result" class="meta-line"></span>
+    </div>
+    <div class="token-actions">
+      <span>当前 Token：<code id="token-preview">未登录</code></span>
+      <button id="paste-token" type="button" class="secondary">手动粘贴 Token</button>
+      <button id="clear-token" type="button" class="danger">清除 Token</button>
+      <span id="token-message" class="meta-line"></span>
+    </div>
+  </header>
+  <main>
+    <section id="auth">
+      <h2>认证流程</h2>
+      <form id="captcha-form">
+        <h3>获取图形验证码（GET /dev/auth/captcha）</h3>
+        <div class="form-actions">
+          <button type="submit">刷新验证码</button>
+          <span class="meta-line">响应包含 <code>captchaId</code> 与 SVG Base64 图片。</span>
+        </div>
+        <div class="captcha-box">
+          <img id="captcha-image" alt="验证码预览" />
+          <div>
+            <div class="status-line">当前 captchaId：<code id="captcha-id">尚未获取</code></div>
+            <button type="button" id="copy-captcha-id" class="secondary">复制 captchaId</button>
+          </div>
+        </div>
+        <pre class="output" id="captcha-output"></pre>
+      </form>
+
+      <form id="email-code-form">
+        <h3>发送邮箱验证码（POST /dev/auth/emailCode）</h3>
+        <div class="field-group">
+          <label>
+            <span>Email</span>
+            <input name="email" type="email" placeholder="user@example.com" required />
+          </label>
+          <label>
+            <span>用途</span>
+            <select name="type">
+              <option value="register" selected>register</option>
+              <option value="login">login</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="submit">发送验证码</button>
+          <button type="button" id="email-code-fill" class="secondary">同步注册邮箱</button>
+          <span class="meta-line">接口具有限流，请避免连续触发。</span>
+        </div>
+        <pre class="output" id="email-code-output"></pre>
+      </form>
+
+      <form id="register-form">
+        <h3>注册用户（POST /dev/auth/register）</h3>
+        <div class="field-group">
+          <label>
+            <span>Email</span>
+            <input name="email" type="email" placeholder="user@example.com" required />
+          </label>
+          <label>
+            <span>密码</span>
+            <input name="password" type="password" placeholder="Password123!" required />
+          </label>
+          <label>
+            <span>昵称</span>
+            <input name="name" type="text" placeholder="John Doe" required />
+          </label>
+        </div>
+        <div class="field-group">
+          <label>
+            <span>captchaId</span>
+            <input name="captchaId" type="text" placeholder="自动填充自上一步" />
+          </label>
+          <label>
+            <span>图形验证码</span>
+            <input name="captchaCode" type="text" placeholder="ABCD" required />
+          </label>
+          <label>
+            <span>邮件验证码</span>
+            <input name="emailCode" type="text" placeholder="123456" required />
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="submit">提交注册</button>
+          <span class="meta-line">需要事先触发邮件验证码发送流程（独立接口）。</span>
+        </div>
+        <pre class="output" id="register-output"></pre>
+      </form>
+
+      <form id="login-password-form">
+        <h3>密码登录（POST /dev/auth/login）</h3>
+        <div class="field-group">
+          <label>
+            <span>Email</span>
+            <input name="email" type="email" placeholder="user@example.com" required />
+          </label>
+          <label>
+            <span>密码</span>
+            <input name="password" type="password" placeholder="Password123!" required />
+          </label>
+        </div>
+        <div class="field-group">
+          <label>
+            <span>captchaId</span>
+            <input name="captchaId" type="text" placeholder="自动填充自上一步" />
+          </label>
+          <label>
+            <span>图形验证码</span>
+            <input name="captchaCode" type="text" placeholder="ABCD" required />
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="submit">登录（保存 Token）</button>
+        </div>
+        <pre class="output" id="login-password-output"></pre>
+      </form>
+
+      <form id="login-code-form">
+        <h3>邮件验证码登录（POST /dev/auth/login）</h3>
+        <div class="field-group">
+          <label>
+            <span>Email</span>
+            <input name="email" type="email" placeholder="user@example.com" required />
+          </label>
+          <label>
+            <span>邮件验证码</span>
+            <input name="emailCode" type="text" placeholder="123456" required />
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="submit">登录（保存 Token）</button>
+        </div>
+        <pre class="output" id="login-code-output"></pre>
+      </form>
+
+      <form id="login-token-form">
+        <h3>通过 Token 刷新（GET /dev/auth/loginByToken）</h3>
+        <div class="form-actions">
+          <button type="submit">刷新 Token</button>
+          <span class="meta-line">需已保存 Token；响应新的 Token 与用户信息。</span>
+        </div>
+        <pre class="output" id="login-token-output"></pre>
+      </form>
+    </section>
+
+    <section id="upload">
+      <h2>文件上传</h2>
+      <form id="upload-single-form" enctype="multipart/form-data">
+        <h3>单文件上传（POST /dev/file/upload/single）</h3>
+        <div class="field-group flex">
+          <label>
+            <span>选择文件</span>
+            <input name="file" type="file" required />
+          </label>
+          <label>
+            <span>描述（可选）</span>
+            <input name="description" type="text" placeholder="Demo file" />
+          </label>
+          <label class="inline">
+            <input name="isPublic" type="checkbox" />
+            <span>公开文件</span>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="submit">上传文件</button>
+        </div>
+        <pre class="output" id="upload-single-output"></pre>
+      </form>
+
+      <form id="upload-multiple-form" enctype="multipart/form-data">
+        <h3>多文件上传（POST /dev/file/upload/multiple）</h3>
+        <div class="field-group flex">
+          <label>
+            <span>选择多个文件</span>
+            <input name="files" type="file" multiple required />
+          </label>
+          <label>
+            <span>描述（可选）</span>
+            <input name="description" type="text" placeholder="Project assets" />
+          </label>
+          <label class="inline">
+            <input name="isPublic" type="checkbox" />
+            <span>公开文件</span>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="submit">上传多个文件</button>
+        </div>
+        <pre class="output" id="upload-multiple-output"></pre>
+      </form>
+
+      <form id="upload-chunk-form" enctype="multipart/form-data">
+        <h3>分片上传流程（init → chunk → merge）</h3>
+        <div class="field-group flex">
+          <label>
+            <span>选择大文件</span>
+            <input name="file" type="file" required />
+          </label>
+          <label>
+            <span>分片大小（MB）</span>
+            <input name="chunkSize" type="number" min="1" step="0.5" value="2" required />
+          </label>
+        </div>
+        <div class="field-group flex">
+          <label>
+            <span>描述（可选）</span>
+            <input name="description" type="text" placeholder="Release package" />
+          </label>
+          <label class="inline">
+            <input name="isPublic" type="checkbox" />
+            <span>公开文件</span>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="submit">执行分片上传</button>
+          <span class="meta-line">自动串联三个接口，需较长时间。</span>
+        </div>
+        <progress id="chunk-progress" value="0" max="1"></progress>
+        <div class="status-line" id="chunk-progress-text">等待开始…</div>
+        <pre class="output" id="upload-chunk-output"></pre>
+      </form>
+    </section>
+
+    <section id="profile">
+      <h2>用户资料</h2>
+      <form id="update-user-form">
+        <h3>更新用户信息（PUT /dev/auth/updateUserInfo）</h3>
+        <div class="field-group flex">
+          <label>
+            <span>昵称（可选）</span>
+            <input name="name" type="text" placeholder="新的昵称" />
+          </label>
+          <label>
+            <span>头像路径（可选）</span>
+            <input name="avatarPath" type="text" placeholder="uploads/avatar.png" />
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="submit">更新</button>
+          <span class="meta-line">需要已登录；可先用文件上传接口上传头像，再填入路径。</span>
+        </div>
+        <pre class="output" id="update-user-output"></pre>
+      </form>
+
+      <form id="my-avatar-form">
+        <h3>我的头像（GET /dev/auth/avatar）</h3>
+        <div class="form-actions">
+          <button type="submit">获取我的头像</button>
+        </div>
+        <div class="status-line"><img id="my-avatar-img" alt="我的头像" style="max-height:120px;border-radius:8px;border:1px solid #e2e8f0;"/></div>
+        <pre class="output" id="my-avatar-output"></pre>
+      </form>
+
+      <form id="user-avatar-form">
+        <h3>指定用户头像（GET /dev/auth/avatar/{userId}）</h3>
+        <div class="field-group">
+          <label>
+            <span>User ID</span>
+            <input name="userId" type="text" placeholder="507f1f77bcf86cd799439011" />
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="submit">获取头像</button>
+        </div>
+        <div class="status-line"><img id="user-avatar-img" alt="用户头像" style="max-height:120px;border-radius:8px;border:1px solid #e2e8f0;"/></div>
+        <pre class="output" id="user-avatar-output"></pre>
+      </form>
+    </section>
+    <section id="download">
+      <h2>文件下载</h2>
+      <form id="download-token-form">
+        <h3>生成下载令牌（POST /dev/file/download/token）</h3>
+        <div class="field-group">
+          <label>
+            <span>文件 ID</span>
+            <input name="fileId" type="text" placeholder="file_1726492384567_a1b2c3d4e5f" required />
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="submit">生成下载地址</button>
+        </div>
+        <div class="status-line">临时下载链接：<a id="download-link" href="#" target="_blank" rel="noopener">尚未生成</a></div>
+        <pre class="output" id="download-token-output"></pre>
+      </form>
+
+      <form id="download-public-form">
+        <h3>查询公共文件（GET /dev/file/public）</h3>
+        <div class="field-group">
+          <label>
+            <span>文件 ID</span>
+            <input name="fileId" type="text" placeholder="file_1726492384567_a1b2c3d4e5f" required />
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="submit">查询</button>
+        </div>
+        <pre class="output" id="download-public-output"></pre>
+      </form>
+    </section>
+
+    <section id="utility">
+      <h2>通用调试</h2>
+      <form id="dev-get-form">
+        <h3>服务器时间（GET /dev/）</h3>
+        <div class="form-actions">
+          <button type="submit">请求</button>
+        </div>
+        <pre class="output" id="dev-get-output"></pre>
+      </form>
+
+      <form id="dev-post-form">
+        <h3>回显请求（POST /dev/）</h3>
+        <div class="field-group">
+          <label>
+            <span>请求体（JSON）</span>
+            <textarea name="payload">{ "exampleField": "example value" }</textarea>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="submit">发送</button>
+        </div>
+        <pre class="output" id="dev-post-output"></pre>
+      </form>
+    </section>
+
+    <section id="security">
+      <h2>安全检查</h2>
+      <form id="security-headers-form">
+        <div class="form-actions">
+          <button type="submit">检查安全头（GET /dev/）</button>
+        </div>
+      </form>
+      <pre class="output" id="security-headers-output"></pre>
+    </section>
+
+    <section id="admin-section">
+      <h2>Admin 控制台</h2>
+      <p>请先使用管理员或更高角色登录，填写上面的 Token 后再操作。</p>
+
+      <h3>用户列表</h3>
+      <form id="admin-list-users-form">
+        <label>Page: <input name="page" type="number" value="1" min="1" /></label>
+        <label>PageSize: <input name="pageSize" type="number" value="10" min="1" max="200" /></label>
+        <label>Role:
+          <select name="role">
+            <option value="">(全部)</option>
+            <option value="user">user</option>
+            <option value="admin">admin</option>
+            <option value="moderator">moderator</option>
+          </select>
+        </label>
+        <button type="submit">查询</button>
+      </form>
+      <pre id="admin-list-users-output" class="output"></pre>
+
+      <h3>创建用户</h3>
+      <form id="admin-create-user-form">
+        <label>Email: <input name="email" type="email" required /></label>
+        <label>Name: <input name="name" required /></label>
+        <label>Password: <input name="password" type="password" required /></label>
+        <label>Role:
+          <select name="role">
+            <option value="user">user</option>
+            <option value="admin">admin</option>
+            <option value="moderator">moderator</option>
+          </select>
+        </label>
+        <button type="submit">创建</button>
+      </form>
+      <pre id="admin-create-user-output" class="output"></pre>
+
+      <h3>更新用户</h3>
+      <form id="admin-update-user-form">
+        <label>User ID: <input name="id" required /></label>
+        <label>Email: <input name="email" /></label>
+        <label>Name: <input name="name" /></label>
+        <label>Password: <input name="password" type="password" /></label>
+        <label>Role:
+          <select name="role">
+            <option value="">(不修改)</option>
+            <option value="user">user</option>
+            <option value="admin">admin</option>
+            <option value="moderator">moderator</option>
+          </select>
+        </label>
+        <button type="submit">更新</button>
+      </form>
+      <pre id="admin-update-user-output" class="output"></pre>
+
+      <h3>删除用户</h3>
+      <form id="admin-delete-user-form">
+        <label>User ID: <input name="id" required /></label>
+        <button type="submit">删除</button>
+      </form>
+      <pre id="admin-delete-user-output" class="output"></pre>
+
+      <h3>文件列表</h3>
+      <form id="admin-list-files-form">
+        <label>Page: <input name="page" type="number" value="1" min="1" /></label>
+        <label>PageSize: <input name="pageSize" type="number" value="10" min="1" max="200" /></label>
+        <label>Status:
+          <select name="status">
+            <option value="">(全部)</option>
+            <option value="active">active</option>
+            <option value="archived">archived</option>
+            <option value="deleted">deleted</option>
+          </select>
+        </label>
+        <button type="submit">查询</button>
+      </form>
+      <pre id="admin-list-files-output" class="output"></pre>
+
+      <h3>更新文件</h3>
+      <form id="admin-update-file-form">
+        <label>File ID: <input name="id" required /></label>
+        <label>Name: <input name="name" /></label>
+        <label>Description: <input name="description" /></label>
+        <label>Status:
+          <select name="status">
+            <option value="">(不修改)</option>
+            <option value="active">active</option>
+            <option value="archived">archived</option>
+            <option value="deleted">deleted</option>
+          </select>
+        </label>
+        <button type="submit">更新</button>
+      </form>
+      <pre id="admin-update-file-output" class="output"></pre>
+
+      <h3>删除文件</h3>
+      <form id="admin-delete-file-form">
+        <label>File ID: <input name="id" required /></label>
+        <button type="submit">删除</button>
+      </form>
+      <pre id="admin-delete-file-output" class="output"></pre>
+    </section>
+  </main>
+  <script>
+    (() => {
+      const state = {
+        baseUrl: (localStorage.getItem('suiknit.baseUrl') || 'http://localhost:3000').replace(/\/$/, ''),
+        token: localStorage.getItem('suiknit.token') || '',
+        captchaId: ''
+      };
+
+      const baseUrlInput = document.getElementById('base-url');
+      const saveBaseUrlBtn = document.getElementById('save-base-url');
+      const pingBtn = document.getElementById('ping-server');
+      const pingResult = document.getElementById('ping-result');
+      const tokenPreview = document.getElementById('token-preview');
+      const tokenMessage = document.getElementById('token-message');
+      const clearTokenBtn = document.getElementById('clear-token');
+      const pasteTokenBtn = document.getElementById('paste-token');
+
+      baseUrlInput.value = state.baseUrl;
+
+      function setBaseUrl(url) {
+        if (!url) return;
+        state.baseUrl = url.replace(/\/$/, '');
+        localStorage.setItem('suiknit.baseUrl', state.baseUrl);
+      }
+
+      function resolveUrl(path) {
+        if (/^https?:\/\//i.test(path)) {
+          return path;
+        }
+        return state.baseUrl + (path.startsWith('/') ? path : '/' + path);
+      }
+
+      function authHeaders() {
+        return state.token ? { Authorization: 'Bearer ' + state.token } : {};
+      }
+
+      function updateTokenPreview() {
+        if (state.token) {
+          tokenPreview.textContent = state.token.slice(0, 16) + '…';
+          tokenPreview.title = state.token;
+          tokenMessage.textContent = 'Token 已保存到 localStorage。';
+        } else {
+          tokenPreview.textContent = '未登录';
+          tokenPreview.removeAttribute('title');
+          tokenMessage.textContent = '';
+        }
+      }
+
+      function setToken(token) {
+        state.token = token || '';
+        if (state.token) {
+          localStorage.setItem('suiknit.token', state.token);
+        } else {
+          localStorage.removeItem('suiknit.token');
+        }
+        updateTokenPreview();
+      }
+
+      updateTokenPreview();
+
+      saveBaseUrlBtn.addEventListener('click', () => {
+        setBaseUrl(baseUrlInput.value.trim());
+        pingResult.textContent = '已更新基础地址：' + state.baseUrl;
+      });
+
+      pingBtn.addEventListener('click', async () => {
+        pingResult.textContent = '检查中…';
+        try {
+          const res = await fetch(resolveUrl('/dev/'), { method: 'GET' });
+          pingResult.textContent = res.ok ? '服务器在线（状态 ' + res.status + '）' : '服务器返回 ' + res.status;
+        } catch (err) {
+          pingResult.textContent = '无法连接：' + err.message;
+        }
+      });
+
+      clearTokenBtn.addEventListener('click', () => {
+        setToken('');
+      });
+
+      pasteTokenBtn.addEventListener('click', () => {
+        const manual = prompt('粘贴 JWT Token');
+        if (manual) {
+          setToken(manual.trim());
+        }
+      });
+
+      function writeOutput(id, payload) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (payload instanceof Error) {
+          el.textContent = payload.message || '未知错误';
+          el.dataset.state = 'error';
+          return;
+        }
+        if (typeof payload === 'string') {
+          el.textContent = payload;
+          el.dataset.state = 'pending';
+          return;
+        }
+        try {
+          el.textContent = JSON.stringify(payload, null, 2);
+        } catch (err) {
+          el.textContent = String(payload);
+        }
+        el.dataset.state = payload && payload.ok === false ? 'error' : 'ok';
+      }
+
+      async function parseResponse(response) {
+        const headers = Object.fromEntries(response.headers.entries());
+        const contentType = headers['content-type'] || '';
+        let body;
+        if (contentType.includes('application/json')) {
+          body = await response.json().catch(() => null);
+        } else if (contentType.startsWith('text/')) {
+          body = await response.text();
+        } else if (response.status === 204) {
+          body = null;
+        } else {
+          body = await response.blob();
+        }
+        return { ok: response.ok, status: response.status, headers, body };
+      }
+
+      async function sendJson(path, method, payload, { auth = false } = {}) {
+        const headers = { 'Content-Type': 'application/json' };
+        if (auth) {
+          if (!state.token) {
+            throw new Error('缺少 Token，请先登录。');
+          }
+          headers.Authorization = 'Bearer ' + state.token;
+        }
+        const response = await fetch(resolveUrl(path), {
+          method,
+          headers,
+          body: JSON.stringify(payload)
+        });
+        return parseResponse(response);
+      }
+
+      async function sendForm(path, formData, { auth = false } = {}) {
+        const headers = {};
+        if (auth) {
+          if (!state.token) {
+            throw new Error('缺少 Token，请先登录。');
+          }
+          headers.Authorization = 'Bearer ' + state.token;
+        }
+        const response = await fetch(resolveUrl(path), {
+          method: 'POST',
+          headers,
+          body: formData
+        });
+        return parseResponse(response);
+      }
+
+      function unwrapServerEnvelope(serverBody) {
+        if (!serverBody || typeof serverBody !== 'object') {
+          return { message: undefined, data: serverBody };
+        }
+        // New unified shape: { ok, status, message, body, timestamp, time-consuming }
+        if ('ok' in serverBody && 'status' in serverBody && 'body' in serverBody) {
+          return { message: serverBody.message, data: serverBody.body };
+        }
+        // Legacy shape: { code, message, data }
+        if ('code' in serverBody && 'data' in serverBody) {
+          return { message: serverBody.message, data: serverBody.data };
+        }
+        return { message: undefined, data: serverBody };
+      }
+
+      function successBody(res) {
+        const unwrapped = unwrapServerEnvelope(res.body);
+        return { ok: res.ok, status: res.status, message: unwrapped.message, body: unwrapped.data };
+      }
+
+      const captchaForm = document.getElementById('captcha-form');
+      const captchaImg = document.getElementById('captcha-image');
+      const captchaIdLabel = document.getElementById('captcha-id');
+      const copyCaptchaBtn = document.getElementById('copy-captcha-id');
+      const emailCodeForm = document.getElementById('email-code-form');
+      const emailCodeFillBtn = document.getElementById('email-code-fill');
+      const emailCodeEmailInput = emailCodeForm ? emailCodeForm.querySelector('input[name="email"]') : null;
+      const registerEmailInput = document.querySelector('#register-form input[name="email"]');
+      const loginPasswordEmailInput = document.querySelector('#login-password-form input[name="email"]');
+      const loginCodeEmailInput = document.querySelector('#login-code-form input[name="email"]');
+
+      const syncEmailToEmailCode = (value) => {
+        if (!emailCodeEmailInput || !value) return;
+        if (!emailCodeEmailInput.value) {
+          emailCodeEmailInput.value = value;
+        }
+      };
+
+      const getTrimmedValue = (input) => {
+        if (!input || typeof input.value !== 'string') return '';
+        return input.value.trim();
+      };
+
+      [registerEmailInput, loginPasswordEmailInput, loginCodeEmailInput].forEach((input) => {
+        if (input) {
+          input.addEventListener('input', () => {
+            const val = getTrimmedValue(input);
+            if (val) {
+              syncEmailToEmailCode(val);
+            }
+          });
+        }
+      });
+
+      if (emailCodeFillBtn) {
+        emailCodeFillBtn.addEventListener('click', () => {
+          const candidate =
+            getTrimmedValue(registerEmailInput) ||
+            getTrimmedValue(loginPasswordEmailInput) ||
+            getTrimmedValue(loginCodeEmailInput);
+
+          if (!candidate) {
+            alert('请先在注册或登录表单填写邮箱。');
+            return;
+          }
+
+          if (emailCodeEmailInput) {
+            emailCodeEmailInput.value = candidate;
+          }
+        });
+      }
+
+      if (emailCodeForm) {
+        emailCodeForm.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          writeOutput('email-code-output', '请求中…');
+          const formData = new FormData(emailCodeForm);
+          const email = (formData.get('email') || '').toString().trim();
+          const type = (formData.get('type') || 'register').toString().trim() || 'register';
+          if (!email) {
+            writeOutput('email-code-output', new Error('请填写邮箱。'));
+            return;
+          }
+          try {
+            const endpoints = ['/dev/auth/emailCode', '/dev/auth/sendEmailCode', '/dev/auth/email/code'];
+            let response = null;
+            let lastAttempt = null;
+
+            for (const endpoint of endpoints) {
+              const candidate = await sendJson(endpoint, 'POST', { email, type });
+              lastAttempt = { ...candidate, endpoint };
+              if (candidate.status === 404) {
+                continue;
+              }
+              response = lastAttempt;
+              break;
+            }
+
+            const finalResult = response ?? lastAttempt;
+
+            if (!finalResult) {
+              throw new Error('验证码接口不可用');
+            }
+
+            if (finalResult.status === 404) {
+              writeOutput('email-code-output', {
+                ok: finalResult.ok,
+                status: finalResult.status,
+                body: finalResult.body,
+                endpoint: finalResult.endpoint
+              });
+              return;
+            }
+
+            writeOutput('email-code-output', successBody(finalResult));
+          } catch (err) {
+            writeOutput('email-code-output', err);
+          }
+        });
+      }
+
+
+      captchaForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        writeOutput('captcha-output', '请求中…');
+        try {
+          const res = await fetch(resolveUrl('/dev/auth/captcha'));
+          const parsed = await parseResponse(res);
+          const shown = successBody(parsed);
+          writeOutput('captcha-output', shown);
+          const captchaId = shown.body?.captchaId;
+          const captchaImage = shown.body?.captchaImage;
+          if (captchaId) {
+            state.captchaId = captchaId;
+            captchaIdLabel.textContent = captchaId;
+            const registerCaptcha = document.querySelector('#register-form input[name="captchaId"]');
+            const loginCaptcha = document.querySelector('#login-password-form input[name="captchaId"]');
+            if (registerCaptcha && !registerCaptcha.value) {
+              registerCaptcha.value = captchaId;
+            }
+            if (loginCaptcha && !loginCaptcha.value) {
+              loginCaptcha.value = captchaId;
+            }
+          }
+          if (captchaImage) {
+            captchaImg.src = captchaImage;
+          }
+        } catch (err) {
+          writeOutput('captcha-output', err);
+        }
+      });
+
+      // ====================== Admin Console ======================
+      const adminSection = document.getElementById('admin-section');
+      if (adminSection) {
+        const bind = (id) => document.getElementById(id);
+
+        // List Users
+        const listUsersForm = bind('admin-list-users-form');
+        if (listUsersForm) {
+          listUsersForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            writeOutput('admin-list-users-output', '请求中…');
+            const fd = new FormData(listUsersForm);
+            const page = fd.get('page') || '1';
+            const pageSize = fd.get('pageSize') || '20';
+            const role = (fd.get('role') || '').toString().trim();
+            const qs = new URLSearchParams({ page: page.toString(), pageSize: pageSize.toString() });
+            if (role) qs.set('role', role);
+            const res = await fetch(resolveUrl('/dev/admin/users?' + qs.toString()), { headers: authHeaders() });
+            const parsed = await parseResponse(res);
+            writeOutput('admin-list-users-output', successBody(parsed));
+          });
+        }
+
+        // Create User
+        const createUserForm = bind('admin-create-user-form');
+        if (createUserForm) {
+          createUserForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            writeOutput('admin-create-user-output', '请求中…');
+            const fd = new FormData(createUserForm);
+            const payload = Object.fromEntries(fd.entries());
+            const res = await fetch(resolveUrl('/dev/admin/users'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...authHeaders() },
+              body: JSON.stringify(payload)
+            });
+            const parsed = await parseResponse(res);
+            writeOutput('admin-create-user-output', successBody(parsed));
+          });
+        }
+
+        // Update User
+        const updateUserForm = bind('admin-update-user-form');
+        if (updateUserForm) {
+          updateUserForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            writeOutput('admin-update-user-output', '请求中…');
+            const fd = new FormData(updateUserForm);
+            const id = (fd.get('id') || '').toString().trim();
+            const payload = Object.fromEntries(Array.from(fd.entries()).filter(([k]) => k !== 'id'));
+            const res = await fetch(resolveUrl('/dev/admin/users/' + encodeURIComponent(id)), {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json', ...authHeaders() },
+              body: JSON.stringify(payload)
+            });
+            const parsed = await parseResponse(res);
+            writeOutput('admin-update-user-output', successBody(parsed));
+          });
+        }
+
+        // Delete User
+        const deleteUserForm = bind('admin-delete-user-form');
+        if (deleteUserForm) {
+          deleteUserForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            writeOutput('admin-delete-user-output', '请求中…');
+            const fd = new FormData(deleteUserForm);
+            const id = (fd.get('id') || '').toString().trim();
+            const res = await fetch(resolveUrl('/dev/admin/users/' + encodeURIComponent(id)), {
+              method: 'DELETE',
+              headers: authHeaders()
+            });
+            const parsed = await parseResponse(res);
+            writeOutput('admin-delete-user-output', successBody(parsed));
+          });
+        }
+
+        // List Files
+        const listFilesForm = bind('admin-list-files-form');
+        if (listFilesForm) {
+          listFilesForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            writeOutput('admin-list-files-output', '请求中…');
+            const fd = new FormData(listFilesForm);
+            const page = fd.get('page') || '1';
+            const pageSize = fd.get('pageSize') || '20';
+            const status = (fd.get('status') || '').toString().trim();
+            const qs = new URLSearchParams({ page: page.toString(), pageSize: pageSize.toString() });
+            if (status) qs.set('status', status);
+            const res = await fetch(resolveUrl('/dev/admin/files?' + qs.toString()), { headers: authHeaders() });
+            const parsed = await parseResponse(res);
+            writeOutput('admin-list-files-output', successBody(parsed));
+          });
+        }
+
+        // Update File
+        const updateFileForm = bind('admin-update-file-form');
+        if (updateFileForm) {
+          updateFileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            writeOutput('admin-update-file-output', '请求中…');
+            const fd = new FormData(updateFileForm);
+            const id = (fd.get('id') || '').toString().trim();
+            const payload = Object.fromEntries(Array.from(fd.entries()).filter(([k]) => k !== 'id'));
+            const res = await fetch(resolveUrl('/dev/admin/files/' + encodeURIComponent(id)), {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json', ...authHeaders() },
+              body: JSON.stringify(payload)
+            });
+            const parsed = await parseResponse(res);
+            writeOutput('admin-update-file-output', successBody(parsed));
+          });
+        }
+
+        // Delete File
+        const deleteFileForm = bind('admin-delete-file-form');
+        if (deleteFileForm) {
+          deleteFileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            writeOutput('admin-delete-file-output', '请求中…');
+            const fd = new FormData(deleteFileForm);
+            const id = (fd.get('id') || '').toString().trim();
+            const res = await fetch(resolveUrl('/dev/admin/files/' + encodeURIComponent(id)), {
+              method: 'DELETE',
+              headers: authHeaders()
+            });
+            const parsed = await parseResponse(res);
+            writeOutput('admin-delete-file-output', successBody(parsed));
+          });
+        }
+      }
+
+      copyCaptchaBtn.addEventListener('click', async () => {
+        if (!state.captchaId) {
+          alert('请先获取验证码。');
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(state.captchaId);
+          alert('已复制 captchaId：' + state.captchaId);
+        } catch {
+          alert('浏览器不支持直接复制，请手动复制：' + state.captchaId);
+        }
+      });
+
+      document.getElementById('register-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        writeOutput('register-output', '请求中…');
+        const formData = new FormData(event.target);
+        const payload = Object.fromEntries(formData.entries());
+        if (!payload.captchaId && state.captchaId) {
+          payload.captchaId = state.captchaId;
+        }
+        try {
+          const res = await sendJson('/dev/auth/register', 'POST', payload);
+          writeOutput('register-output', successBody(res));
+        } catch (err) {
+          writeOutput('register-output', err);
+        }
+      });
+
+      document.getElementById('login-password-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        writeOutput('login-password-output', '请求中…');
+        const formData = new FormData(event.target);
+        const payload = Object.fromEntries(formData.entries());
+        if (!payload.captchaId && state.captchaId) {
+          payload.captchaId = state.captchaId;
+        }
+        try {
+          const res = await sendJson('/dev/auth/login', 'POST', payload);
+          writeOutput('login-password-output', successBody(res));
+          const token = res.body?.data?.token;
+          if (token) {
+            setToken(token);
+          }
+        } catch (err) {
+          writeOutput('login-password-output', err);
+        }
+      });
+
+      document.getElementById('login-code-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        writeOutput('login-code-output', '请求中…');
+        const formData = new FormData(event.target);
+        const payload = Object.fromEntries(formData.entries());
+        try {
+          const res = await sendJson('/dev/auth/login', 'POST', payload);
+          writeOutput('login-code-output', successBody(res));
+          const token = res.body?.data?.token;
+          if (token) {
+            setToken(token);
+          }
+        } catch (err) {
+          writeOutput('login-code-output', err);
+        }
+      });
+
+      document.getElementById('login-token-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        writeOutput('login-token-output', '请求中…');
+        if (!state.token) {
+          writeOutput('login-token-output', new Error('缺少 Token，请先登录。'));
+          return;
+        }
+        try {
+          const res = await fetch(resolveUrl('/dev/auth/loginByToken'), {
+            method: 'GET',
+            headers: {
+              Authorization: 'Bearer ' + state.token
+            }
+          });
+          const parsed = await parseResponse(res);
+          writeOutput('login-token-output', successBody(parsed));
+          const token = parsed.body?.data?.token;
+          if (token) {
+            setToken(token);
+          }
+        } catch (err) {
+          writeOutput('login-token-output', err);
+        }
+      });
+
+      document.getElementById('upload-single-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        writeOutput('upload-single-output', '上传中…');
+        const formEl = event.target;
+        const formData = new FormData(formEl);
+        formData.set('isPublic', formEl.isPublic.checked ? 'true' : 'false');
+        try {
+          const res = await sendForm('/dev/file/upload/single', formData, { auth: true });
+          writeOutput('upload-single-output', successBody(res));
+        } catch (err) {
+          writeOutput('upload-single-output', err);
+        }
+      });
+
+      document.getElementById('upload-multiple-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        writeOutput('upload-multiple-output', '上传中…');
+        const formEl = event.target;
+        const files = formEl.files.files;
+        if (!files || files.length === 0) {
+          writeOutput('upload-multiple-output', new Error('请选择至少一个文件。'));
+          return;
+        }
+        const formData = new FormData();
+        Array.from(files).forEach((file) => formData.append('files', file, file.name));
+        formData.append('description', formEl.description.value || '');
+        formData.append('isPublic', formEl.isPublic.checked ? 'true' : 'false');
+        try {
+          const res = await sendForm('/dev/file/upload/multiple', formData, { auth: true });
+          writeOutput('upload-multiple-output', successBody(res));
+        } catch (err) {
+          writeOutput('upload-multiple-output', err);
+        }
+      });
+
+      const chunkForm = document.getElementById('upload-chunk-form');
+      const chunkProgress = document.getElementById('chunk-progress');
+      const chunkProgressText = document.getElementById('chunk-progress-text');
+
+      chunkForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        writeOutput('upload-chunk-output', '处理中…');
+        const file = chunkForm.file.files[0];
+        if (!file) {
+          writeOutput('upload-chunk-output', new Error('请选择文件。'));
+          return;
+        }
+        const chunkSizeMB = parseFloat(chunkForm.chunkSize.value || '2');
+        if (Number.isNaN(chunkSizeMB) || chunkSizeMB <= 0) {
+          writeOutput('upload-chunk-output', new Error('分片大小需为正数。'));
+          return;
+        }
+        const chunkSize = Math.max(1, chunkSizeMB) * 1024 * 1024;
+        const chunkCount = Math.max(1, Math.ceil(file.size / chunkSize));
+        chunkProgress.max = chunkCount;
+        chunkProgress.value = 0;
+        chunkProgressText.textContent = '初始化分片上传…';
+
+        try {
+          const initPayload = {
+            fileName: file.name,
+            fileSize: file.size,
+            chunkCount
+          };
+          if (chunkForm.description.value) {
+            initPayload.description = chunkForm.description.value;
+          }
+          const initRes = await sendJson('/dev/file/upload/chunk/init', 'POST', initPayload, { auth: true });
+          if (!initRes.ok) {
+            writeOutput('upload-chunk-output', successBody(initRes));
+            return;
+          }
+          const uploadId = initRes.body?.data?.uploadId;
+          if (!uploadId) {
+            writeOutput('upload-chunk-output', new Error('初始化成功但缺少 uploadId。'));
+            return;
+          }
+
+          let lastChunkRes = null;
+          for (let index = 0; index < chunkCount; index += 1) {
+            const start = index * chunkSize;
+            const end = Math.min(start + chunkSize, file.size);
+            const blob = file.slice(start, end);
+            const formData = new FormData();
+            formData.append('chunk', blob, file.name + '.part' + index);
+            formData.append('uploadId', uploadId);
+            formData.append('chunkIndex', String(index));
+            chunkProgress.value = index;
+            chunkProgressText.textContent = '上传第 ' + (index + 1) + ' / ' + chunkCount + ' 个分片…';
+            lastChunkRes = await sendForm('/dev/file/upload/chunk', formData, { auth: true });
+            if (!lastChunkRes.ok) {
+              writeOutput('upload-chunk-output', {
+                ok: false,
+                status: lastChunkRes.status,
+                body: lastChunkRes.body,
+                stage: 'chunk',
+                failedIndex: index
+              });
+              chunkProgressText.textContent = '第 ' + (index + 1) + ' 个分片上传失败。';
+              return;
+            }
+            chunkProgress.value = index + 1;
+          }
+
+          chunkProgressText.textContent = '分片上传完成，开始合并…';
+          const mergePayload = {
+            uploadId,
+            fileName: file.name,
+            fileSize: file.size,
+            chunkCount,
+            isPublic: chunkForm.isPublic.checked
+          };
+          if (chunkForm.description.value) {
+            mergePayload.description = chunkForm.description.value;
+          }
+          const mergeRes = await sendJson('/dev/file/upload/chunk/merge', 'POST', mergePayload, { auth: true });
+          chunkProgress.value = chunkCount;
+          chunkProgressText.textContent = mergeRes.ok ? '全部完成！' : '合并失败。';
+
+          writeOutput('upload-chunk-output', {
+            init: successBody(initRes),
+            lastChunk: successBody(lastChunkRes || { ok: true, status: 200, body: 'All chunks uploaded' }),
+            merge: successBody(mergeRes)
+          });
+        } catch (err) {
+          writeOutput('upload-chunk-output', err);
+          chunkProgressText.textContent = '发生错误：' + err.message;
+        }
+      });
+
+      document.getElementById('download-token-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        writeOutput('download-token-output', '请求中…');
+        const formData = new FormData(event.target);
+        const payload = Object.fromEntries(formData.entries());
+        try {
+          const res = await sendJson('/dev/file/download/token', 'POST', payload, { auth: true });
+          writeOutput('download-token-output', successBody(res));
+          const downloadUrl = res.body?.data?.downloadUrl;
+          if (downloadUrl) {
+            const link = document.getElementById('download-link');
+            const resolved = resolveUrl(downloadUrl);
+            link.href = resolved;
+            link.textContent = resolved;
+          }
+        } catch (err) {
+          writeOutput('download-token-output', err);
+        }
+      });
+
+      document.getElementById('download-public-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        writeOutput('download-public-output', '请求中…');
+        const formData = new FormData(event.target);
+        const fileId = formData.get('fileId');
+        try {
+          const url = new URL(resolveUrl('/dev/file/public'));
+          url.searchParams.set('fileId', fileId);
+          const res = await fetch(url, { method: 'GET' });
+          const parsed = await parseResponse(res);
+          writeOutput('download-public-output', successBody(parsed));
+        } catch (err) {
+          writeOutput('download-public-output', err);
+        }
+      });
+
+      document.getElementById('dev-get-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        writeOutput('dev-get-output', '请求中…');
+        try {
+          const res = await fetch(resolveUrl('/dev/'), { method: 'GET' });
+          const parsed = await parseResponse(res);
+          writeOutput('dev-get-output', successBody(parsed));
+        } catch (err) {
+          writeOutput('dev-get-output', err);
+        }
+      });
+
+      document.getElementById('dev-post-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        writeOutput('dev-post-output', '请求中…');
+        const payloadRaw = event.target.payload.value;
+        let payload;
+        try {
+          payload = payloadRaw ? JSON.parse(payloadRaw) : {};
+        } catch (err) {
+          writeOutput('dev-post-output', err);
+          return;
+        }
+        try {
+          const res = await sendJson('/dev/', 'POST', payload);
+          writeOutput('dev-post-output', successBody(res));
+        } catch (err) {
+          writeOutput('dev-post-output', err);
+        }
+      });
+
+      // 安全头检查
+      const securityForm = document.getElementById('security-headers-form');
+      if (securityForm) {
+        securityForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          writeOutput('security-headers-output', '检查中…');
+          try {
+            const res = await fetch(resolveUrl('/dev/'), { method: 'GET' });
+            const parsed = await parseResponse(res);
+            const h = parsed.headers || {};
+            const pick = (k) => h[k] ?? h[k.toLowerCase()] ?? h[k.toUpperCase()];
+            const report = {
+              ok: parsed.ok,
+              status: parsed.status,
+              headers: {
+                'x-request-id': pick('x-request-id') || '(缺失)',
+                'x-content-type-options': pick('x-content-type-options') || '(缺失)',
+                'x-frame-options': pick('x-frame-options') || '(缺失)',
+                'referrer-policy': pick('referrer-policy') || '(缺失)',
+                'content-security-policy': pick('content-security-policy') || '(未启用/精简以兼容 Swagger)',
+                'x-dns-prefetch-control': pick('x-dns-prefetch-control') || '(缺失)',
+                'strict-transport-security': pick('strict-transport-security') || '(HTTP 场景可能缺失)',
+                'cross-origin-embedder-policy': pick('cross-origin-embedder-policy') || '(缺失)',
+                'cross-origin-resource-policy': pick('cross-origin-resource-policy') || '(缺失)'
+              }
+            };
+            writeOutput('security-headers-output', report);
+          } catch (err) {
+            writeOutput('security-headers-output', err);
+          }
+        });
+      }
+    })();
+  </script>  <script>
+    (function(){
+      function baseUrl(){return (localStorage.getItem("suiknit.baseUrl")||"http://localhost:3000").replace(/\/$/,'');}
+      function authHeaders(){const tk=localStorage.getItem('suiknit.token')||''; return tk?{Authorization:'Bearer '+tk}:{}};
+      async function asJson(r){try{return await r.json()}catch{return null}}
+      const uf=document.getElementById('update-user-form'); if(uf){uf.addEventListener('submit',async(e)=>{e.preventDefault();const out=document.getElementById('update-user-output'); if(out) out.textContent='请求中…'; const fd=new FormData(uf); const payload=Object.fromEntries(fd.entries()); const r=await fetch(baseUrl()+'/dev/auth/updateUserInfo',{method:'PUT',headers:{'Content-Type':'application/json',...authHeaders()},body:JSON.stringify(payload)}); const body=await asJson(r); if(out) out.textContent=JSON.stringify({ok:r.ok,status:r.status,body:body},null,2);});}
+      const maf=document.getElementById('my-avatar-form'); if(maf){maf.addEventListener('submit',async(e)=>{e.preventDefault(); const img=document.getElementById('my-avatar-img'); const out=document.getElementById('my-avatar-output'); if(out) out.textContent='请求中…'; const r=await fetch(baseUrl()+'/dev/auth/avatar',{headers:authHeaders()}); const b=await r.blob(); const url=URL.createObjectURL(b); if(img) img.setAttribute('src',url); if(out) out.textContent=JSON.stringify({ok:r.ok,status:r.status,body:'blob('+b.type+')'},null,2);});}
+      const uaf=document.getElementById('user-avatar-form'); if(uaf){uaf.addEventListener('submit',async(e)=>{e.preventDefault(); const img=document.getElementById('user-avatar-img'); const out=document.getElementById('user-avatar-output'); if(out) out.textContent='请求中…'; const fd=new FormData(uaf); const id=(fd.get('userId')||'').toString().trim(); if(!id){ if(out) out.textContent='请填写 User ID'; return;} const r=await fetch(baseUrl()+'/dev/auth/avatar/'+encodeURIComponent(id)); const b=await r.blob(); const url=URL.createObjectURL(b); if(img) img.setAttribute('src',url); if(out) out.textContent=JSON.stringify({ok:r.ok,status:r.status,body:'blob('+b.type+')'},null,2);});}
+    })();
+  </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
