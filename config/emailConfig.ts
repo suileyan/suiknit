@@ -17,10 +17,10 @@ const emailConfig: EmailConfig = {
   port: 465,
   secure: true,
   auth: {
-    user: '3220145931@qq.com',
+    user: 'your_email',
     pass: 'your_key'
   },
-  from: '3220145931@qq.com'
+  from: 'your_website or your_email'
 };
 
 export default emailConfig;
